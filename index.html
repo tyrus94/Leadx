@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>LeadX — Lead Exchange</title>
+<meta property="og:title" content="LeadX — Lead Exchange">
+<meta property="og:description" content="Where leads change hands. iGaming & forex, one desk.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="LeadX — Lead Exchange">
+<meta name="twitter:description" content="Where leads change hands. iGaming & forex, one desk.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230B0F1A'/%3E%3Ctext x='50' y='68' font-family='monospace' font-size='58' font-weight='700' fill='%23FFB020' text-anchor='middle'%3EX%3C/text%3E%3C/svg%3E">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B0F1A; --panel:#121A2B; --panel-2:#16203A; --line:#243050; --line-soft:#1B2540;
+    --paper:#E7ECF5; --muted:#8496B3; --faint:#576580;
+    --need:#FFB020; --need-dim:#4A3A1A; --offer:#2FD9C0; --offer-dim:#154A42;
+    --danger:#FF5C5C; --danger-dim:#4A1F1F; --accent:#6C8CFF; --accent-dim:#1E2A52;
+    font-family:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--ink); color:var(--paper); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; overflow-x:hidden; touch-action:manipulation; -webkit-tap-highlight-color:transparent;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  #app{max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; background:var(--ink); position:relative;}
+
+  .topbar{padding:16px 18px 12px; border-bottom:1px solid var(--line-soft); position:sticky; top:0; background:var(--ink); z-index:10;}
+  .wordmark{display:flex; align-items:baseline; gap:8px;}
+  .wordmark .brand{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:18px; letter-spacing:2px;}
+  .wordmark .brand span{color:var(--need);}
+  .wordmark .tag{font-size:11px; color:var(--faint);}
+  .ticker{margin-top:10px; display:flex; gap:14px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); overflow-x:auto; white-space:nowrap; padding-bottom:2px;}
+  .ticker b{color:var(--paper); font-weight:600;}
+  .ticker .up{color:var(--offer);} .ticker .dn{color:var(--need);}
+
+  .view{padding:16px 18px 90px; flex:1; display:none;}
+  .view.active{display:block;}
+
+  .navbar{position:fixed; bottom:0; left:0; right:0; max-width:480px; margin:0 auto; display:flex; border-top:1px solid var(--line-soft); background:var(--panel); z-index:50;}
+  .navbtn{flex:1; background:none; border:none; color:var(--faint); padding:10px 4px 8px; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.5px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;}
+  .navbtn .ico{font-size:17px;} .navbtn.active{color:var(--offer);}
+  .navbar.hidden{display:none;}
+
+  label{display:block; font-size:12px; color:var(--muted); margin:14px 0 6px; font-family:'IBM Plex Mono',monospace; letter-spacing:0.3px;}
+  label:first-child{margin-top:0;}
+  input[type=text], input[type=email], input[type=password], textarea, select{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--paper);
+    border-radius:8px; padding:11px 12px; font-size:14px; font-family:'Inter',sans-serif;
+  }
+  input:focus, textarea:focus, select:focus{outline:none; border-color:var(--accent);}
+  textarea{resize:vertical; min-height:80px; line-height:1.5;}
+  .hint{font-size:11px; color:var(--faint); margin-top:5px;}
+
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--paper); padding:11px 16px; font-size:14px; font-weight:500; cursor:pointer; font-family:'Inter',sans-serif;}
+  .btn:active{transform:scale(0.98);}
+  .btn-block{width:100%;}
+  .btn-primary{background:var(--offer); color:#04342C; border-color:var(--offer); font-weight:600;}
+  .btn-amber{background:var(--need); color:#412402; border-color:var(--need); font-weight:600;}
+  .btn-ghost{background:transparent;}
+  .btn-danger{color:var(--danger); border-color:var(--danger-dim);}
+  .btn-sm{padding:7px 11px; font-size:12px; border-radius:7px;}
+
+  .card{background:var(--panel); border:1px solid var(--line-soft); border-radius:12px; padding:16px;}
+
+  .seg{display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .seg button{flex:1; padding:9px 6px; background:var(--panel-2); border:none; color:var(--muted); font-size:12px; font-family:'IBM Plex Mono',monospace; font-weight:600; letter-spacing:0.5px; cursor:pointer;}
+  .seg button.on.need{background:var(--need); color:#412402;}
+  .seg button.on.offer{background:var(--offer); color:#04342C;}
+  .seg button.on.all{background:var(--accent); color:#0B1533;}
+
+  .ticket{display:flex; border-radius:10px; overflow:hidden; margin-bottom:12px; background:var(--panel); border:1px solid var(--line-soft);}
+  .ticket .spine{width:5px; flex-shrink:0;}
+  .ticket.need .spine{background:var(--need);} .ticket.offer .spine{background:var(--offer);}
+  .ticket-body{padding:13px 14px; flex:1; min-width:0;}
+  .ticket-top{display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;}
+  .tag{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:0.5px; padding:2px 7px; border-radius:4px;}
+  .tag.need{background:var(--need-dim); color:var(--need);} .tag.offer{background:var(--offer-dim); color:var(--offer);}
+  .tag.industry{background:var(--panel-2); color:var(--muted); border:1px solid var(--line);}
+  .refcode{margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--faint);}
+  .ticket-title{font-size:15px; font-weight:600; margin:0 0 4px;}
+  .ticket-desc{font-size:13px; color:var(--muted); line-height:1.5; margin:0 0 10px;}
+  .ticket-meta{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--faint); font-family:'IBM Plex Mono',monospace; margin-bottom:10px; flex-wrap:wrap;}
+  .ticket-meta .dot{opacity:0.5;}
+  .badge-mini{font-size:10px; padding:1px 5px; border-radius:3px; background:var(--accent-dim); color:var(--accent); font-family:'IBM Plex Mono',monospace;}
+  .ticket-actions{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .ticket-actions .btn{flex:1;}
+  .report-link{background:none; border:none; color:var(--faint); font-size:12px; cursor:pointer; padding:8px; font-family:'Inter',sans-serif;}
+  .report-link:active{color:var(--danger);}
+
+  .searchbar{margin-bottom:12px;}
+  .filter-row{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;}
+  .filter-row select{font-size:12px; padding:9px 10px;}
+
+  .empty{text-align:center; padding:50px 20px; color:var(--faint);}
+  .empty .ico{font-size:32px; margin-bottom:10px; opacity:0.5;}
+  .empty p{font-size:13px; margin:4px 0;}
+
+  .avatar{width:56px; height:56px; border-radius:50%; background:var(--accent-dim); color:var(--accent); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:20px; flex-shrink:0; overflow:hidden;}
+  .avatar img{width:100%; height:100%; object-fit:cover; display:block;}
+  .avatar-sm{width:20px; height:20px; border-radius:50%; background:var(--accent-dim); color:var(--accent); display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:9px; flex-shrink:0; overflow:hidden; vertical-align:middle;}
+  .avatar-sm img{width:100%; height:100%; object-fit:cover; display:block;}
+  .avatar-edit{margin-top:12px; display:flex; gap:8px;}
+  .avatar-edit input{flex:1;}
+  .referral-box{margin-top:18px; padding-top:16px; border-top:1px solid var(--line);}
+  .referral-box label{display:block; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;}
+  .profile-head{display:flex; gap:14px; align-items:center; margin-bottom:14px;}
+  .profile-name{font-size:17px; font-weight:600; margin:0 0 2px;}
+  .profile-sub{font-size:12px; color:var(--muted); margin:0;}
+  .badges-row{display:flex; gap:6px; flex-wrap:wrap; margin:12px 0;}
+  .badge{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-family:'IBM Plex Mono',monospace; padding:4px 9px; border-radius:20px; font-weight:600;}
+  .badge.verified{background:var(--accent-dim); color:var(--accent);}
+  .badge.networker{background:var(--offer-dim); color:var(--offer);}
+  .badge.veteran{background:var(--need-dim); color:var(--need);}
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:14px 0;}
+  .stat-box{background:var(--panel-2); border-radius:8px; padding:10px 12px;}
+  .stat-box .n{font-family:'IBM Plex Mono',monospace; font-size:18px; font-weight:600;}
+  .stat-box .l{font-size:11px; color:var(--faint); margin-top:2px;}
+  .section-title{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.5px; color:var(--faint); margin:22px 0 10px; text-transform:uppercase;}
+
+  .admin-tabs{display:flex; gap:6px; margin-bottom:14px;}
+  .admin-tab{flex:1; padding:9px; border-radius:7px; border:1px solid var(--line); background:var(--panel-2); color:var(--muted); font-size:12px; font-family:'IBM Plex Mono',monospace; cursor:pointer;}
+  .admin-tab.on{background:var(--accent-dim); color:var(--accent); border-color:var(--accent);}
+  .row-item{padding:11px 0; border-bottom:1px solid var(--line-soft);}
+  .row-item:last-child{border-bottom:none;}
+  .ri-title{font-size:13px; font-weight:600; margin:0 0 2px;}
+  .ri-sub{font-size:11px; color:var(--faint); font-family:'IBM Plex Mono',monospace; margin-bottom:8px;}
+  .pill-status{font-size:10px; padding:2px 7px; border-radius:4px; font-family:'IBM Plex Mono',monospace; font-weight:600;}
+  .pill-status.active{background:var(--offer-dim); color:var(--offer);}
+  .pill-status.banned, .pill-status.removed{background:var(--danger-dim); color:var(--danger);}
+  .pill-status.review, .pill-status.closed{background:var(--need-dim); color:var(--need);}
+  .pill-status.pending{background:var(--need-dim); color:var(--need);}
+  .row-actions{display:flex; gap:6px; flex-wrap:wrap;}
+  .toggle-btn{position:relative;}
+  .toggle-btn.state-on.verify{background:var(--offer); color:#04342C; border-color:var(--offer);}
+  .toggle-btn.state-on.ban{background:var(--danger); color:#3A0C0C; border-color:var(--danger);}
+
+  /* icon badges: green star = verified, red star = banned, yellow star = sponsored, blue diamond = admin */
+  .icon-badge{display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:700; cursor:pointer;}
+  .icon-badge.i-verified{color:#2ECC71;}
+  .icon-badge.i-banned{color:#FF4D4D;}
+  .icon-badge.i-sponsored{color:#F5C518;}
+  .icon-badge.i-admin{color:#4C8DFF;}
+  .icon-badge.i-official{color:#9AA5B8;}
+  .name-icons{display:inline-flex; gap:5px; margin-left:5px; vertical-align:middle;}
+
+  .tag.sponsored{background:#3A3110; color:#F5C518;}
+  .translate-link{background:none; border:none; color:var(--accent); font-size:12px; cursor:pointer; padding:8px; font-family:'Inter',sans-serif;}
+  .translate-link:active{opacity:0.7;}
+  .translated-note{font-size:10px; color:var(--faint); font-family:'IBM Plex Mono',monospace; margin:-4px 0 8px;}
+  .char-count{font-size:10px; color:var(--faint); font-family:'IBM Plex Mono',monospace; text-align:right; margin:2px 0 10px;}
+  .char-count.near-limit{color:var(--need);}
+  .pw-wrap{position:relative;}
+  .pw-wrap input{padding-right:44px;}
+  .pw-toggle{position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--faint); font-size:11px; font-family:'IBM Plex Mono',monospace; cursor:pointer; padding:4px;}
+  .pw-toggle:hover{color:var(--muted);}
+  .list-loading{opacity:.45; pointer-events:none; transition:opacity .15s;}
+
+  .auth-wrap{min-height:100vh; display:flex; align-items:center; padding:24px 20px;}
+  .auth-card{width:100%; background:var(--panel); border:1px solid var(--line-soft); border-radius:14px; padding:26px 22px; position:relative;}
+  .auth-card::before{content:''; position:absolute; top:0; left:22px; right:22px; height:1px; background:repeating-linear-gradient(90deg, var(--line) 0 6px, transparent 6px 12px);}
+  .auth-head{text-align:center; margin-bottom:22px;}
+  .auth-head .brand{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:22px; letter-spacing:3px;}
+  .auth-head .brand span{color:var(--need);}
+  .auth-head p{color:var(--muted); font-size:13px; margin:6px 0 0;}
+  .chip-select{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{padding:6px 11px; border-radius:20px; border:1px solid var(--line); background:var(--panel-2); color:var(--muted); font-size:12px; cursor:pointer;}
+  .chip.on{background:var(--accent-dim); color:var(--accent); border-color:var(--accent);}
+  .switch-line{text-align:center; margin-top:16px; font-size:13px; color:var(--muted);}
+  .switch-line a{color:var(--accent); cursor:pointer; text-decoration:none; font-weight:600;}
+
+  .modal-back{position:fixed; inset:0; background:rgba(5,8,15,0.7); display:none; align-items:flex-end; z-index:100; max-width:480px; margin:0 auto;}
+  .modal-back.show{display:flex;}
+  .modal{background:var(--panel); width:100%; border-radius:16px 16px 0 0; padding:20px 20px 26px; border:1px solid var(--line-soft); border-bottom:none;}
+  .modal h3{margin:0 0 14px; font-size:15px;}
+  .reason-opt{padding:11px 12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px; font-size:13px; cursor:pointer;}
+
+  .toast{position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--paper); color:var(--ink); padding:10px 18px; border-radius:20px; font-size:13px; font-weight:500; z-index:200; opacity:0; transition:opacity 0.2s; max-width:400px; text-align:center;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<body>
+<div id="app">
+
+  <!-- ===================== AUTH ===================== -->
+  <div id="authScreen" class="auth-wrap" style="display:none;">
+    <div class="auth-card">
+      <div style="text-align:center; margin-bottom:14px;"><a id="backToBrowse" style="font-size:12px; cursor:pointer; color:var(--muted);">&#8249; Back to browsing</a></div>
+      <div class="auth-head">
+        <div class="brand">LEAD<span>X</span></div>
+        <p>Where leads change hands. iGaming &amp; forex, one desk.</p>
+      </div>
+
+      <!-- SIGNUP -->
+      <form id="signupForm">
+        <label>Full name</label>
+        <input type="text" id="suName" required>
+        <label>Company</label>
+        <input type="text" id="suCompany" required>
+        <label>Work email</label>
+        <input type="email" id="suEmail" required placeholder="you@yourcompany.com">
+        <div class="hint">Any email works for now — we'll verify active members directly.</div>
+        <label>Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="suPassword" required minlength="4">
+          <button type="button" class="pw-toggle" data-target="suPassword">SHOW</button>
+        </div>
+        <label>Telegram username <span class="hint" style="display:inline">(no @)</span></label>
+        <input type="text" id="suTgUser" required placeholder="e.g. james_omondi">
+        <div class="hint">5-32 characters, letters/numbers/underscores, must start with a letter.</div>
+        <label>Base country</label>
+        <select id="suCountry"></select>
+        <label>Industries you work in</label>
+        <div class="chip-select" id="suIndustries"></div>
+        <label>Profile photo URL <span class="hint" style="display:inline">(optional)</span></label>
+        <input type="text" id="suAvatarUrl" placeholder="https://...">
+        <div style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary btn-block">Enter the desk</button>
+        </div>
+        <div class="switch-line">Already have an account? <a id="toLogin">Log in</a></div>
+      </form>
+
+      <!-- RECOGNIZED TELEGRAM ACCOUNT — quick login, no username typing needed -->
+      <form id="recognizedLoginForm" style="display:none;">
+        <p class="hint" id="recognizedGreeting" style="text-align:center; margin-bottom:14px; font-size:14px; color:var(--paper);"></p>
+        <label>Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="recognizedPassword" required>
+          <button type="button" class="pw-toggle" data-target="recognizedPassword">SHOW</button>
+        </div>
+        <div style="text-align:right; margin-top:6px;"><a id="toForgotFromRecognized" style="font-size:12px; cursor:pointer;">Forgot password?</a></div>
+        <div style="margin-top:14px;">
+          <button type="submit" class="btn btn-primary btn-block">Log in</button>
+        </div>
+        <div class="switch-line">Not you? <a id="notThisUser">Log in with a different account</a></div>
+      </form>
+
+      <!-- LOGIN -->
+      <form id="loginForm" style="display:none;">
+        <label>Work email or Telegram username</label>
+        <input type="text" id="liEmail" placeholder="you@yourcompany.com or @yourusername" required>
+        <label>Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="liPassword" required>
+          <button type="button" class="pw-toggle" data-target="liPassword">SHOW</button>
+        </div>
+        <div style="text-align:right; margin-top:6px;"><a id="toForgot" style="font-size:12px; cursor:pointer;">Forgot password?</a></div>
+        <div style="margin-top:14px;">
+          <button type="submit" class="btn btn-primary btn-block">Log in</button>
+        </div>
+        <div class="switch-line">New here? <a id="toSignup">Sign up</a></div>
+      </form>
+
+      <!-- FORGOT PASSWORD -->
+      <form id="forgotForm" style="display:none;">
+        <p class="hint" style="margin-bottom:14px;">Enter your email or Telegram username and we'll send you a reset link — to your email, or straight to Telegram, whichever matches.</p>
+        <label>Work email or Telegram username</label>
+        <input type="text" id="forgotEmail" placeholder="you@yourcompany.com or @yourusername" required>
+        <div style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary btn-block">Send reset link</button>
+        </div>
+        <div class="switch-line">Remembered it? <a id="backToLoginFromForgot">Log in</a></div>
+      </form>
+
+      <!-- SET NEW PASSWORD (opened via the emailed reset link) -->
+      <form id="resetForm" style="display:none;">
+        <p class="hint" style="margin-bottom:14px;">Choose a new password for your account.</p>
+        <label>New password</label>
+        <div class="pw-wrap">
+          <input type="password" id="resetPassword" required minlength="4">
+          <button type="button" class="pw-toggle" data-target="resetPassword">SHOW</button>
+        </div>
+        <div style="margin-top:20px;">
+          <button type="submit" class="btn btn-primary btn-block">Set new password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== SHARED LEAD (guest teaser) ===================== -->
+  <div id="sharedLeadScreen" class="auth-wrap" style="display:none;"></div>
+
+  <!-- ===================== MAIN APP ===================== -->
+  <div id="mainApp" style="display:none;">
+    <div class="topbar">
+      <div class="wordmark">
+        <div class="brand">LEAD<span>X</span></div>
+        <div class="tag">lead exchange</div>
+      </div>
+      <div class="ticker" id="tickerStrip"></div>
+    </div>
+
+    <div class="view active" id="view-browse">
+      <div class="searchbar"><input type="text" id="searchInput" placeholder="Search title, description, keywords..."></div>
+      <div class="seg" id="typeFilter" style="margin-bottom:10px;">
+        <button data-v="all" class="on all">ALL</button>
+        <button data-v="need" class="need">NEEDS</button>
+        <button data-v="offer" class="offer">OFFERS</button>
+      </div>
+      <div class="filter-row">
+        <select id="filterCountry"><option value="">All countries</option></select>
+        <select id="filterIndustry"><option value="">All industries</option></select>
+      </div>
+      <div id="leadList"></div>
+    </div>
+
+    <div class="view" id="view-post">
+      <div class="section-title">New ticket</div>
+      <div class="seg" id="postType" style="margin-bottom:4px;">
+        <button data-v="need" class="on need">I NEED</button>
+        <button data-v="offer" class="offer">I'M OFFERING</button>
+      </div>
+      <label>Title</label>
+      <input type="text" id="postTitle" maxlength="80" placeholder="e.g. Tier-1 PSP for LATAM iGaming payouts">
+      <div class="char-count" id="postTitleCount">0 / 80</div>
+      <label>Description</label>
+      <textarea id="postDesc" maxlength="280" placeholder="What exactly do you need or have on offer?"></textarea>
+      <div class="char-count" id="postDescCount">0 / 280</div>
+      <label>Country / region</label>
+      <select id="postCountry"></select>
+      <label>Industry</label>
+      <select id="postIndustry"></select>
+      <label>Keywords <span class="hint" style="display:inline">(comma separated)</span></label>
+      <input type="text" id="postKeywords" placeholder="crypto payout, high-risk, LATAM">
+      <div id="postSponsoredWrap" style="display:none; margin-top:14px;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:0;" id="postSponsoredLabel">
+          <input type="checkbox" id="postSponsored" style="width:auto;">
+          <span class="mono" style="font-size:12px; color:var(--muted);">Mark as sponsored (ad)</span>
+        </label>
+      </div>
+      <div id="postQuotaHint" class="hint" style="margin-top:14px;"></div>
+      <div class="hint">New posts are reviewed before they appear on the desk.</div>
+      <div style="margin-top:10px;">
+        <button class="btn btn-primary btn-block" id="submitLead">Post to the desk</button>
+      </div>
+    </div>
+
+    <div class="view" id="view-profile"></div>
+    <div class="view" id="view-admin"></div>
+
+    <div class="navbar" id="navbar">
+      <button class="navbtn active" data-view="browse"><span class="ico">&#9636;</span>Browse</button>
+      <button class="navbtn" data-view="post"><span class="ico">&#43;</span>Post</button>
+      <button class="navbtn" data-view="profile"><span class="ico">&#9679;</span>Profile</button>
+      <button class="navbtn" data-view="admin" id="adminNavBtn" style="display:none;"><span class="ico">&#9873;</span>Admin</button>
+      <button class="navbtn" id="loginNavBtn" style="display:none;"><span class="ico">&#8594;</span>Log in</button>
+    </div>
+  </div>
+
+  <div class="modal-back" id="reportModalBack">
+    <div class="modal">
+      <h3>Report this lead</h3>
+      <div id="reportReasons"></div>
+      <button class="btn btn-block" id="cancelReport" style="margin-top:6px;">Cancel</button>
+    </div>
+  </div>
+
+  <div class="modal-back" id="proxyLeadModalBack">
+    <div class="modal" style="max-height:85vh; overflow-y:auto;">
+      <h3>Post on behalf of a contact</h3>
+      <p class="hint" style="margin-bottom:14px;">For a real prospect who shared their request with you outside the app. This quietly creates a real account for them — if they later open LeadX via Telegram themselves, they'll be recognized and can claim it.</p>
+
+      <label>Their first name</label>
+      <input type="text" id="proxyName" required>
+      <label>Their Telegram username <span class="hint" style="display:inline">(no @)</span></label>
+      <input type="text" id="proxyTgUser" required placeholder="e.g. james_omondi">
+      <label>Their Telegram numeric ID <span class="hint" style="display:inline">(optional, enables notifications)</span></label>
+      <input type="text" id="proxyTgId" placeholder="e.g. 123456789">
+
+      <div class="seg" id="proxyType" style="margin:14px 0 4px;">
+        <button data-v="need" class="on need">THEY NEED</button>
+        <button data-v="offer" class="offer">THEY'RE OFFERING</button>
+      </div>
+      <label>Title</label>
+      <input type="text" id="proxyTitle" maxlength="80" required>
+      <label>Description</label>
+      <textarea id="proxyDesc" maxlength="280" required></textarea>
+      <label>Country / region</label>
+      <select id="proxyCountry"></select>
+      <label>Industry</label>
+      <select id="proxyIndustry"></select>
+
+      <div style="margin-top:16px; display:flex; gap:8px;">
+        <button class="btn btn-block" id="cancelProxyLead">Cancel</button>
+        <button class="btn btn-primary btn-block" id="submitProxyLead">Post for them</button>
+      </div>
+      <div style="text-align:center; margin-top:14px;"><a id="toBulkUpload" style="font-size:12px; cursor:pointer; color:var(--muted);">Have several? Upload a CSV instead &rsaquo;</a></div>
+    </div>
+  </div>
+
+  <div class="modal-back" id="csvUploadModalBack">
+    <div class="modal" style="max-height:85vh; overflow-y:auto;">
+      <h3>Bulk upload contacts</h3>
+      <p class="hint" style="margin-bottom:10px;">One row per person. Columns: <code>first_name, telegram_username, telegram_id, type, title, description, country, industry</code>. <code>telegram_id</code> can be left blank. <code>type</code> must be <code>need</code> or <code>offer</code>. <code>country</code> and <code>industry</code> must match LeadX's exact spelling.</p>
+      <button class="btn btn-sm" id="downloadCsvTemplate" style="margin-bottom:14px;">Download CSV template</button>
+      <label>CSV file</label>
+      <input type="file" id="csvFileInput" accept=".csv">
+      <div id="csvResults" style="margin-top:14px;"></div>
+      <div style="margin-top:16px; display:flex; gap:8px;">
+        <button class="btn btn-block" id="cancelCsvUpload">Close</button>
+        <button class="btn btn-primary btn-block" id="submitCsvUpload">Upload &amp; post all</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ============== CONFIG ============== */
+const SUPPORT_TELEGRAM = 'meekymax';
+const BOT_USERNAME = 'leadxappbot';
+// Telegram's reliable "opens this exact content" deep-link format requires
+// the Mini App's registered short name (from /newapp in BotFather) — the
+// bare bot link + startapp is meant for a different launch context and
+// doesn't consistently carry the parameter through.
+const BOT_APP_SHORTNAME = 'leadx';
+const COUNTRIES = ['Global/Remote','Afghanistan','Albania','Algeria','Andorra','Angola','Antigua and Barbuda','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus','Belgium','Belize','Benin','Bhutan','Bolivia','Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria','Burkina Faso','Burundi','Cabo Verde','Cambodia','Cameroon','Canada','Central African Republic','Chad','Chile','China','Colombia','Comoros','Congo (DRC)','Congo (Republic)','Costa Rica','Croatia','Cuba','Curacao','Cyprus','Czechia','Denmark','Djibouti','Dominica','Dominican Republic','Ecuador','Egypt','El Salvador','Equatorial Guinea','Eritrea','Estonia','Eswatini','Ethiopia','Fiji','Finland','France','Gabon','Gambia','Georgia','Germany','Ghana','Greece','Grenada','Guatemala','Guinea','Guinea-Bissau','Guyana','Haiti','Honduras','Hong Kong','Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Ivory Coast','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kiribati','Kosovo','Kuwait','Kyrgyzstan','Laos','Latvia','Lebanon','Lesotho','Liberia','Libya','Liechtenstein','Lithuania','Luxembourg','Macau','Madagascar','Malawi','Malaysia','Maldives','Mali','Malta','Marshall Islands','Mauritania','Mauritius','Mexico','Micronesia','Moldova','Monaco','Mongolia','Montenegro','Morocco','Mozambique','Myanmar','Namibia','Nauru','Nepal','Netherlands','New Zealand','Nicaragua','Niger','Nigeria','North Korea','North Macedonia','Norway','Oman','Pakistan','Palau','Palestine','Panama','Papua New Guinea','Paraguay','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saint Kitts and Nevis','Saint Lucia','Saint Vincent and the Grenadines','Samoa','San Marino','Sao Tome and Principe','Saudi Arabia','Senegal','Serbia','Seychelles','Sierra Leone','Singapore','Slovakia','Slovenia','Solomon Islands','Somalia','South Africa','South Korea','South Sudan','Spain','Sri Lanka','Sudan','Suriname','Sweden','Switzerland','Syria','Taiwan','Tajikistan','Tanzania','Thailand','Timor-Leste','Togo','Tonga','Trinidad and Tobago','Tunisia','Turkey','Turkmenistan','Tuvalu','UAE','UK','USA','Uganda','Ukraine','Uruguay','Uzbekistan','Vanuatu','Vatican City','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe','Other'];
+const INDUSTRIES = ['iGaming Operator','Sportsbook','Casino Affiliate','PSP / Payments','Forex Broker','Prop Firm','Media Buying','KYC/AML','Event Organizer','White Label','Software/Platform','Licensing/Legal','Other'];
+const REPORT_REASONS = ['Spam or fake', 'Scam / fraud attempt', 'Duplicate post', 'Wrong category', 'Other'];
+// Primary business language per base country, used to auto-target the translate feature.
+const COUNTRY_LANG = {
+  'Global/Remote':'en','UK':'en','USA':'en','Ireland':'en','Australia':'en','New Zealand':'en',
+  'Nigeria':'en','South Africa':'en','Ghana':'en','Kenya':'sw','Tanzania':'sw','Uganda':'en',
+  'Canada':'en','India':'hi','Pakistan':'ur','Bangladesh':'bn','Sri Lanka':'si','Nepal':'ne',
+  'Malta':'mt','Cyprus':'el','Greece':'el','Curacao':'nl','Netherlands':'nl','Belgium':'nl',
+  'UAE':'ar','Saudi Arabia':'ar','Qatar':'ar','Kuwait':'ar','Bahrain':'ar','Oman':'ar',
+  'Egypt':'ar','Jordan':'ar','Lebanon':'ar','Iraq':'ar','Libya':'ar','Algeria':'ar','Morocco':'ar',
+  'Tunisia':'ar','Sudan':'ar','Syria':'ar','Yemen':'ar','Palestine':'ar',
+  'Philippines':'tl','Brazil':'pt','Portugal':'pt','Angola':'pt','Mozambique':'pt',
+  'Mexico':'es','Colombia':'es','Argentina':'es','Chile':'es','Peru':'es','Venezuela':'es',
+  'Ecuador':'es','Bolivia':'es','Paraguay':'es','Uruguay':'es','Costa Rica':'es','Panama':'es',
+  'Guatemala':'es','Honduras':'es','El Salvador':'es','Nicaragua':'es','Dominican Republic':'es',
+  'Cuba':'es','Spain':'es','Equatorial Guinea':'es',
+  'Poland':'pl','Ukraine':'uk','Estonia':'et','Georgia':'ka','Latvia':'lv','Lithuania':'lt',
+  'Czechia':'cs','Slovakia':'sk','Hungary':'hu','Romania':'ro','Bulgaria':'bg','Serbia':'sr',
+  'Croatia':'hr','Slovenia':'sl','Bosnia and Herzegovina':'bs','Montenegro':'sr','North Macedonia':'mk',
+  'Albania':'sq','Kosovo':'sq','Moldova':'ro','Russia':'ru','Belarus':'be','Armenia':'hy',
+  'Azerbaijan':'az','Kazakhstan':'kk','Uzbekistan':'uz','Kyrgyzstan':'ky','Tajikistan':'tg',
+  'Turkmenistan':'tk','Mongolia':'mn',
+  'France':'fr','Ivory Coast':'fr','Senegal':'fr','Mali':'fr','Burkina Faso':'fr','Niger':'fr',
+  'Cameroon':'fr','Gabon':'fr','Congo (DRC)':'fr','Congo (Republic)':'fr','Chad':'fr',
+  'Central African Republic':'fr','Guinea':'fr','Benin':'fr','Togo':'fr','Madagascar':'fr',
+  'Djibouti':'fr','Monaco':'fr','Luxembourg':'fr','Switzerland':'de',
+  'Germany':'de','Austria':'de','Liechtenstein':'de',
+  'Italy':'it','San Marino':'it','Vatican City':'it',
+  'Turkey':'tr','Iran':'fa','Afghanistan':'fa','Israel':'he',
+  'China':'zh','Taiwan':'zh','Hong Kong':'zh','Macau':'zh',
+  'Japan':'ja','South Korea':'ko','North Korea':'ko',
+  'Vietnam':'vi','Thailand':'th','Myanmar':'my','Cambodia':'km','Laos':'lo',
+  'Indonesia':'id','Malaysia':'ms','Brunei':'ms','Singapore':'en',
+  'Ethiopia':'am','Somalia':'so','Rwanda':'rw','Burundi':'rn','Malawi':'ny','Zambia':'en',
+  'Zimbabwe':'en','Botswana':'en','Namibia':'en','Eswatini':'en','Lesotho':'en','Mauritius':'en',
+  'Seychelles':'en','Gambia':'en','Sierra Leone':'en','Liberia':'en','Guinea-Bissau':'pt',
+  'Sao Tome and Principe':'pt','Cabo Verde':'pt','Comoros':'ar','Eritrea':'ti','South Sudan':'en',
+  'Fiji':'en','Papua New Guinea':'en','Samoa':'en','Tonga':'en','Vanuatu':'en','Kiribati':'en',
+  'Marshall Islands':'en','Micronesia':'en','Nauru':'en','Palau':'en','Solomon Islands':'en',
+  'Tuvalu':'en','Bahamas':'en','Barbados':'en','Jamaica':'en','Trinidad and Tobago':'en',
+  'Belize':'en','Guyana':'en','Suriname':'nl','Haiti':'fr','Grenada':'en','Dominica':'en',
+  'Saint Lucia':'en','Saint Kitts and Nevis':'en','Saint Vincent and the Grenadines':'en',
+  'Antigua and Barbuda':'en','Andorra':'ca','Iceland':'is','Norway':'no','Sweden':'sv','Denmark':'da',
+  'Finland':'fi','Bhutan':'dz','Maldives':'dv','Mauritania':'ar',
+  'Other':'en'
+};
+// Personal/free-mail domains are not accepted at signup — work email only.
+// Turn this back on later once signups are coming from strangers rather
+// than people you personally invite and verify — for now, the green
+// verified badge (granted manually) is the trust signal, not the domain.
+const REQUIRE_WORK_EMAIL = false;
+const FREE_EMAIL_DOMAINS = ['gmail.com','googlemail.com','yahoo.com','ymail.com','yahoo.co.uk','yahoo.co.in','hotmail.com','outlook.com','live.com','msn.com','aol.com','icloud.com','me.com','protonmail.com','proton.me','mail.com','gmx.com','zoho.com'];
+function isWorkEmail(email){
+  const domain = (email.split('@')[1] || '').trim().toLowerCase();
+  return !!domain && !FREE_EMAIL_DOMAINS.includes(domain);
+}
+
+/* ============== SUPABASE ============== */
+const SUPABASE_URL = 'https://xpojhdqdazazjhhqoltn.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhwb2poZHFkYXphempoaHFvbHRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0ODU2NzIsImV4cCI6MjEwMTA2MTY3Mn0.hfJ7MZxUF56BD7ws4idx4w0Fh7ww9U9IrRQCN9RkM14';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Captured once at load — whoever's link brought this visitor here, if anyone.
+// Works both inside Telegram (startapp param) and in a plain browser (?ref=
+// or ?lead=) for testing before the Mini App is fully wired up. Telegram only
+// gives us one start_param slot, so a shared-lead code is prefixed "lead_"
+// to tell it apart from a plain referral code.
+let PENDING_REFERRAL_CODE = null;
+let SHARED_LEAD_CODE = new URLSearchParams(window.location.search).get('lead') || null;
+try{
+  const startParam = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe
+    && window.Telegram.WebApp.initDataUnsafe.start_param;
+  if(startParam && startParam.startsWith('lead_')){ SHARED_LEAD_CODE = startParam.slice(5); }
+  else if(startParam){ PENDING_REFERRAL_CODE = startParam; }
+  else { PENDING_REFERRAL_CODE = new URLSearchParams(window.location.search).get('ref') || null; }
+}catch(e){}
+
+// Detected synchronously, before any async auth calls, so there's no race
+// between "is this a recovery link" and init()'s own session check below.
+const AUTH_URL_PARAMS = window.location.hash + window.location.search;
+let RECOVERY_MODE = /type=recovery/.test(AUTH_URL_PARAMS);
+const RECOVERY_LINK_ERROR = /error=/.test(AUTH_URL_PARAMS);
+
+function showResetPasswordScreen(){
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('sharedLeadScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('signupForm').style.display='none';
+  document.getElementById('loginForm').style.display='none';
+  document.getElementById('forgotForm').style.display='none';
+  document.getElementById('resetForm').style.display='block';
+}
+if(RECOVERY_LINK_ERROR){
+  // The link was invalid or expired — Supabase reports this via URL params
+  // rather than a real session, so tell the person plainly and let them
+  // request a fresh one instead of leaving them on a dead screen.
+  const descMatch = AUTH_URL_PARAMS.match(/error_description=([^&]+)/);
+  const friendly = descMatch && /expired/i.test(descMatch[1])
+    ? 'That reset link has expired. Enter your email below to get a new one.'
+    : 'That reset link is no longer valid. Enter your email below to get a new one.';
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('sharedLeadScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('signupForm').style.display='none';
+  document.getElementById('loginForm').style.display='none';
+  document.getElementById('resetForm').style.display='none';
+  document.getElementById('forgotForm').style.display='block';
+  setTimeout(()=>toast(friendly), 50);
+  window.history.replaceState(null, '', window.location.pathname);
+} else if(RECOVERY_MODE){
+  showResetPasswordScreen();
+  window.history.replaceState(null, '', window.location.pathname);
+}
+// Backup path, in case a future Supabase auth flow doesn't put type=recovery in the URL.
+sb.auth.onAuthStateChange((event)=>{
+  if(event === 'PASSWORD_RECOVERY'){ RECOVERY_MODE = true; showResetPasswordScreen(); }
+});
+
+/* ============== DATA LAYER (Supabase) ============== */
+// Merges `profiles` (public info) with `moderation_flags` (admin/verified/banned)
+// into the flat user shape the rest of the app already expects.
+async function fetchDirectory(){
+  const [{data: profiles, error: pErr}, {data: flags, error: fErr}] = await Promise.all([
+    sb.from('profiles').select('*'),
+    sb.from('moderation_flags').select('*')
+  ]);
+  if(pErr){ console.error(pErr); } if(fErr){ console.error(fErr); }
+  const flagMap = Object.fromEntries((flags||[]).map(f=>[f.user_id, f]));
+  return (profiles||[]).map(p=>{
+    const f = flagMap[p.id] || {};
+    return {
+      id: p.id, email: p.email, name: p.name, company: p.company,
+      telegramUsername: p.telegram_username || '', telegramId: p.telegram_id || null, country: p.country,
+      industries: p.industries || [], bio: p.bio || '', avatarUrl: p.avatar_url || '',
+      referralCode: p.referral_code || '', referredBy: p.referred_by || null,
+      createdAt: new Date(p.created_at).getTime(),
+      isAdmin: !!f.is_admin, isOfficial: !!f.is_official, isVerified: !!f.is_verified, isBanned: !!f.is_banned
+    };
+  });
+}
+async function fetchLeads(){
+  const { data, error } = await sb.from('leads').select('*').order('created_at', {ascending:false});
+  if(error){ console.error(error); return []; }
+  return (data||[]).map(l=>({
+    id: l.id, shortCode: l.short_code, type: l.type, title: l.title, description: l.description,
+    country: l.country, industry: l.industry, keywords: l.keywords || [], postedBy: l.posted_by,
+    status: l.status, isSponsored: l.is_sponsored, reportCount: l.report_count,
+    createdAt: new Date(l.created_at).getTime()
+  }));
+}
+async function fetchReports(){
+  // Non-admins get an empty list here by design — RLS only allows admins to read reports.
+  const { data, error } = await sb.from('reports').select('*').order('created_at', {ascending:false});
+  if(error){ return []; }
+  return (data||[]).map(r=>({
+    id: r.id, leadId: r.lead_id, reporterId: r.reporter_id, reason: r.reason,
+    status: r.status, createdAt: new Date(r.created_at).getTime()
+  }));
+}
+async function refreshAll(){
+  const list = document.getElementById('leadList');
+  if(list) list.classList.add('list-loading');
+  const [users, leads, reports] = await Promise.all([fetchDirectory(), fetchLeads(), fetchReports()]);
+  STATE.users = users; STATE.leads = leads; STATE.reports = reports;
+  if(list) list.classList.remove('list-loading');
+}
+
+let STATE = {
+  users: [], leads: [], reports: [], me: null,
+  browseType: 'all', browseCountry: '', browseIndustry: '', searchQ: '',
+  postType: 'need', proxyType: 'need', adminTab: 'users', reportingLeadId: null,
+  postSponsored: false, translations: {}, showTranslated: {}
+};
+
+/* ============== UTIL ============== */
+function toast(msg){
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function uid(prefix){ return prefix + '-' + Math.random().toString(36).slice(2,7).toUpperCase(); }
+function timeAgo(ts){
+  const s = Math.floor((Date.now()-ts)/1000);
+  if(s<60) return 'just now';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  return Math.floor(s/86400)+'d ago';
+}
+function initials(name){ return (name||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function avatarHTML(user, size){
+  const cls = size==='sm' ? 'avatar-sm' : 'avatar';
+  const url = user && user.avatarUrl;
+  const inner = url
+    ? `<img src="${esc(url)}" alt="" onerror="this.parentElement.innerHTML='${initials(user&&user.name)}';">`
+    : initials(user && user.name);
+  return `<div class="${cls}">${inner}</div>`;
+}
+function esc(s){ const d=document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+function findUser(id){ return STATE.users.find(u=>u.id===id); }
+
+function computeBadges(user){
+  const badges = [];
+  if(user.isVerified) badges.push('verified');
+  const myLeads = STATE.leads.filter(l=>l.postedBy===user.id && l.status!=='removed');
+  if(myLeads.length >= 5) badges.push('networker');
+  const ageDays = (Date.now()-user.createdAt)/86400000;
+  if(ageDays >= 30 && myLeads.length >= 3) badges.push('veteran');
+  return badges;
+}
+const BADGE_LABEL = { verified:'Verified', networker:'Networker', veteran:'Veteran' };
+
+// Small colored icon badges: blue diamond = admin, gray diamond = official
+// platform account, green star = verified, red star = banned,
+// yellow star = sponsored (used on leads, not users).
+const BADGE_EXPLANATIONS = {
+  admin: 'Blue diamond — a LeadX platform administrator.',
+  official: 'Gray diamond — an official LeadX account, not an individual member.',
+  verified: 'Green star — this member has been personally verified by LeadX.',
+  banned: 'Red star — this account has been suspended.',
+  sponsored: 'Yellow star — this is a paid, sponsored listing.'
+};
+function explainBadge(type){ toast(BADGE_EXPLANATIONS[type] || ''); }
+window.explainBadge = explainBadge;
+
+function userIcons(user){
+  if(!user) return '';
+  let out = '';
+  if(user.isAdmin) out += `<span class="icon-badge i-admin" title="Admin" onclick="event.stopPropagation(); explainBadge('admin')">&#9670;</span>`;
+  if(user.isOfficial) out += `<span class="icon-badge i-official" title="Official LeadX account" onclick="event.stopPropagation(); explainBadge('official')">&#9670;</span>`;
+  if(user.isVerified) out += `<span class="icon-badge i-verified" title="Verified" onclick="event.stopPropagation(); explainBadge('verified')">&#9733;</span>`;
+  if(user.isBanned) out += `<span class="icon-badge i-banned" title="Banned" onclick="event.stopPropagation(); explainBadge('banned')">&#9733;</span>`;
+  return out ? `<span class="name-icons">${out}</span>` : '';
+}
+function sponsoredIcon(){ return `<span class="icon-badge i-sponsored" title="Sponsored" onclick="event.stopPropagation(); explainBadge('sponsored')">&#9733;</span>`; }
+
+// Free accounts can browse 10 active leads before being prompted to invite
+// someone to unlock unlimited browsing. Verified/admin/official accounts,
+// and anyone who's referred at least one person, are unlimited.
+const FREE_VIEW_LIMIT = 10;
+function hasUnlockedBrowsing(user){
+  if(!user) return true; // guests aren't capped by this — separate, looser funnel
+  if(user.isAdmin || user.isOfficial || user.isVerified) return true;
+  const referredCount = STATE.users.filter(u=>u.referredBy===user.id).length;
+  return referredCount >= 1;
+}
+
+// Posting caps: unverified accounts can have 3 leads live at once, verified up to 5.
+// Removed leads don't count, so deleting one frees up a slot.
+function leadQuota(user){
+  if(user.isAdmin || user.isOfficial) return { cap: Infinity, used: 0, remaining: Infinity };
+  const cap = user.isVerified ? 5 : 3;
+  const used = STATE.leads.filter(l=>l.postedBy===user.id && l.status!=='removed').length;
+  return { cap, used, remaining: Math.max(0, cap - used) };
+}
+function renderPostQuotaHint(){
+  const el = document.getElementById('postQuotaHint');
+  if(!el || !STATE.me) return;
+  const q = leadQuota(STATE.me);
+  const submitBtn = document.getElementById('submitLead');
+  if(!isFinite(q.cap)){
+    el.textContent = 'Unlimited posting (official account).';
+    if(submitBtn) submitBtn.disabled = false;
+  } else if(q.remaining <= 0){
+    el.textContent = `You've used all ${q.cap} of your lead slots (${STATE.me.isVerified?'verified':'unverified'} limit). Delete an old lead to post a new one${STATE.me.isVerified?'':', or get verified for up to 5'}.`;
+    if(submitBtn) submitBtn.disabled = true;
+  } else {
+    el.textContent = `${q.used} of ${q.cap} lead slots used (${STATE.me.isVerified?'verified':'unverified'} limit).`;
+    if(submitBtn) submitBtn.disabled = false;
+  }
+}
+
+function fillSelect(sel, options, withEmpty){
+  sel.innerHTML = (withEmpty? '<option value="">'+withEmpty+'</option>':'') + options.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
+}
+
+/* ============== INIT ============== */
+function prefillFromTelegram(){
+  try{
+    const tgUser = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user;
+    if(!tgUser) return;
+    const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ');
+    if(fullName) document.getElementById('suName').value = fullName;
+    if(tgUser.username) document.getElementById('suTgUser').value = tgUser.username;
+    if(tgUser.photo_url) document.getElementById('suAvatarUrl').value = tgUser.photo_url;
+  }catch(e){}
+}
+
+// If this visitor opened LeadX via Telegram and their Telegram username
+// matches an existing account, we can skip asking them to type it again —
+// they just confirm with their password. Doesn't skip the password itself,
+// since Telegram's client-side data isn't something the app can trust as
+// proof of identity on its own.
+let RECOGNIZED_TG_USER = null;
+async function checkRecognizedTelegramUser(){
+  try{
+    const tgUser = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user;
+    if(!tgUser || !tgUser.username) return;
+    const { data } = await sb.from('profiles').select('id, name, email, telegram_username').ilike('telegram_username', tgUser.username).maybeSingle();
+    if(data) RECOGNIZED_TG_USER = data;
+  }catch(e){}
+}
+
+async function init(){
+  fillSelect(document.getElementById('suCountry'), COUNTRIES);
+  fillSelect(document.getElementById('postCountry'), COUNTRIES);
+  fillSelect(document.getElementById('filterCountry'), COUNTRIES, 'All countries');
+  fillSelect(document.getElementById('postIndustry'), INDUSTRIES);
+  fillSelect(document.getElementById('filterIndustry'), INDUSTRIES, 'All industries');
+  fillSelect(document.getElementById('proxyCountry'), COUNTRIES);
+  fillSelect(document.getElementById('proxyIndustry'), INDUSTRIES);
+
+  const indWrap = document.getElementById('suIndustries');
+  indWrap.innerHTML = INDUSTRIES.map(i=>`<div class="chip" data-v="${esc(i)}">${esc(i)}</div>`).join('');
+  indWrap.addEventListener('click', e=>{ const c = e.target.closest('.chip'); if(!c) return; c.classList.toggle('on'); });
+
+  try{
+    if(window.Telegram && window.Telegram.WebApp){ window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); }
+  }catch(e){}
+  prefillFromTelegram();
+  await checkRecognizedTelegramUser();
+
+  bindEvents();
+  renderReportReasons();
+
+  if(RECOVERY_MODE || RECOVERY_LINK_ERROR) return; // reset-password screen already shown synchronously above
+
+  const { data: { session } } = await sb.auth.getSession();
+  if(session){
+    await refreshAll();
+    const me = STATE.users.find(u=>u.id===session.user.id);
+    if(me && me.isBanned){
+      await sb.auth.signOut();
+      await enterGuestApp();
+    } else if(me){
+      STATE.me = me; enterApp();
+    } else {
+      await enterGuestApp();
+    }
+    return;
+  }
+
+  // Not logged in: show the single shared lead if that's how they arrived,
+  // otherwise let them browse the desk freely before ever hitting a wall.
+  if(SHARED_LEAD_CODE){ await showSharedLead(SHARED_LEAD_CODE); }
+  else { await enterGuestApp(); }
+}
+
+/* ============== SCREEN CONTROL ============== */
+function hideAllScreens(){
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('sharedLeadScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'none';
+}
+function showAuthScreen(formName){
+  hideAllScreens();
+  document.getElementById('authScreen').style.display = 'flex';
+  const wantsLogin = formName==='login';
+  const showRecognized = wantsLogin && !!RECOGNIZED_TG_USER;
+  document.getElementById('signupForm').style.display = wantsLogin ? 'none' : 'block';
+  document.getElementById('recognizedLoginForm').style.display = showRecognized ? 'block' : 'none';
+  document.getElementById('loginForm').style.display = (wantsLogin && !showRecognized) ? 'block' : 'none';
+  document.getElementById('forgotForm').style.display = 'none';
+  document.getElementById('resetForm').style.display = 'none';
+  if(showRecognized){
+    document.getElementById('recognizedGreeting').textContent = `Welcome back, ${RECOGNIZED_TG_USER.name.split(' ')[0]} — log in to this account.`;
+  }
+}
+function showPlainLogin(){
+  document.getElementById('recognizedLoginForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'block';
+}
+function requireAuth(msg){
+  toast(msg || (RECOGNIZED_TG_USER ? `Log in to continue.` : 'Create a free account to continue.'));
+  showAuthScreen(RECOGNIZED_TG_USER ? 'login' : 'signup');
+}
+window.requireAuth = requireAuth;
+
+async function enterGuestApp(){
+  hideAllScreens();
+  document.getElementById('mainApp').style.display = 'block';
+  document.getElementById('adminNavBtn').style.display = 'none';
+  document.getElementById('loginNavBtn').style.display = 'flex';
+  document.getElementById('postSponsoredWrap').style.display = 'none';
+  await refreshAll();
+  renderTicker(); switchView('browse'); renderBrowse();
+}
+
+let CURRENT_SHARED_LEAD = null;
+let CURRENT_SHARED_POSTER = null;
+let SHARED_LEAD_TRANSLATION = null;
+let SHARED_LEAD_SHOWING_TRANSLATED = false;
+
+async function showSharedLead(code){
+  hideAllScreens();
+  const screen = document.getElementById('sharedLeadScreen');
+  screen.style.display = 'flex';
+  screen.innerHTML = `<div class="auth-card"><p class="hint" style="text-align:center;">Loading lead...</p></div>`;
+
+  const { data: lead, error } = await sb.from('leads').select('*').eq('short_code', code).maybeSingle();
+  if(error || !lead){
+    screen.innerHTML = `
+      <div class="auth-card">
+        <div class="auth-head"><div class="brand">LEAD<span>X</span></div></div>
+        <p class="hint" style="text-align:center; margin:16px 0;">That lead isn't available anymore.</p>
+        <button class="btn btn-primary btn-block" onclick="leaveSharedLead()">Browse the desk</button>
+      </div>`;
+    return;
+  }
+  const { data: posterProfile } = await sb.from('profiles').select('name, company, country').eq('id', lead.posted_by).maybeSingle();
+  CURRENT_SHARED_LEAD = lead;
+  CURRENT_SHARED_POSTER = posterProfile;
+  SHARED_LEAD_TRANSLATION = null;
+  SHARED_LEAD_SHOWING_TRANSLATED = false;
+  renderSharedLeadCard();
+}
+
+function renderSharedLeadCard(){
+  const screen = document.getElementById('sharedLeadScreen');
+  const lead = CURRENT_SHARED_LEAD, posterProfile = CURRENT_SHARED_POSTER;
+  const showingT = SHARED_LEAD_SHOWING_TRANSLATED && SHARED_LEAD_TRANSLATION;
+  const title = showingT ? SHARED_LEAD_TRANSLATION.title : lead.title;
+  const desc = showingT ? SHARED_LEAD_TRANSLATION.description : lead.description;
+  screen.innerHTML = `
+    <div class="auth-card">
+      <div class="auth-head"><div class="brand">LEAD<span>X</span></div><p>Where leads change hands. iGaming &amp; forex, one desk.</p></div>
+      <div class="ticket ${lead.type}" style="margin:18px 0;">
+        <div class="spine"></div>
+        <div class="ticket-body">
+          <div class="ticket-top">
+            <span class="tag ${lead.type}">${lead.type==='need'?'NEED':'OFFER'}</span>
+            <span class="tag industry">${esc(lead.industry)}</span>
+          </div>
+          <p class="ticket-title">${esc(title)}</p>
+          <p class="ticket-desc">${esc(desc)}</p>
+          ${showingT ? `<div class="translated-note">Translated to ${SHARED_LEAD_TRANSLATION.lang} &middot; machine translation</div>` : ''}
+          <div class="ticket-meta">
+            <span>${esc(lead.country)}</span><span class="dot">&middot;</span>
+            <span>${posterProfile && posterProfile.company ? esc(posterProfile.company) : 'LeadX member'}</span>
+          </div>
+          <div class="ticket-actions" style="margin-top:10px;">
+            <button class="translate-link" onclick="toggleSharedLeadTranslate()">${showingT ? 'Show original' : 'Translate'}</button>
+          </div>
+        </div>
+      </div>
+      <p class="hint" style="text-align:center; margin-bottom:14px;">Sign up free to contact the poster and see the full desk.</p>
+      <button class="btn btn-primary btn-block" onclick="leaveSharedLead('signup')" style="margin-bottom:10px;">Sign up free</button>
+      <button class="btn btn-block btn-ghost" onclick="leaveSharedLead()">Browse more leads first</button>
+    </div>`;
+}
+
+async function toggleSharedLeadTranslate(){
+  if(!CURRENT_SHARED_LEAD) return;
+  if(SHARED_LEAD_SHOWING_TRANSLATED){ SHARED_LEAD_SHOWING_TRANSLATED = false; renderSharedLeadCard(); return; }
+  const lang = userLangCode();
+  if(lang === 'en'){ toast('Already in English.'); return; }
+  if(SHARED_LEAD_TRANSLATION && SHARED_LEAD_TRANSLATION.lang === lang){
+    SHARED_LEAD_SHOWING_TRANSLATED = true; renderSharedLeadCard(); return;
+  }
+  toast('Translating...');
+  try{
+    const [title, description] = await Promise.all([
+      translateText(CURRENT_SHARED_LEAD.title, lang), translateText(CURRENT_SHARED_LEAD.description, lang)
+    ]);
+    SHARED_LEAD_TRANSLATION = { lang, title, description };
+    SHARED_LEAD_SHOWING_TRANSLATED = true;
+    renderSharedLeadCard();
+  }catch(e){
+    toast('Translation is unavailable right now.');
+  }
+}
+window.toggleSharedLeadTranslate = toggleSharedLeadTranslate;
+function leaveSharedLead(goto){
+  window.history.replaceState(null, '', window.location.pathname);
+  if(goto==='signup') showAuthScreen('signup');
+  else enterGuestApp();
+}
+window.leaveSharedLead = leaveSharedLead;
+
+function copyToClipboard(text, successMsg){
+  const tmp = document.createElement('textarea');
+  tmp.value = text; tmp.style.position = 'fixed'; tmp.style.opacity = '0';
+  document.body.appendChild(tmp); tmp.select(); tmp.setSelectionRange(0, 99999);
+  try{
+    navigator.clipboard.writeText(text).then(()=>toast(successMsg)).catch(()=>{ document.execCommand('copy'); toast(successMsg); });
+  }catch(e){
+    document.execCommand('copy'); toast(successMsg);
+  }
+  document.body.removeChild(tmp);
+}
+function shareLead(shortCode){
+  const url = `https://t.me/${BOT_USERNAME}/${BOT_APP_SHORTNAME}?startapp=lead_${shortCode}`;
+  copyToClipboard(url, 'Lead link copied — share it anywhere.');
+}
+window.shareLead = shareLead;
+
+function bindCharCount(fieldId, countId, max){
+  const field = document.getElementById(fieldId), out = document.getElementById(countId);
+  const update = ()=>{
+    const len = field.value.length;
+    out.textContent = `${len} / ${max}`;
+    out.classList.toggle('near-limit', len >= max);
+  };
+  field.addEventListener('input', update);
+  update();
+}
+function bindEvents(){
+  document.getElementById('signupForm').addEventListener('submit', onSignup);
+  document.getElementById('loginForm').addEventListener('submit', onLogin);
+  document.getElementById('forgotForm').addEventListener('submit', onForgotPassword);
+  document.getElementById('resetForm').addEventListener('submit', onSetNewPassword);
+  bindCharCount('postTitle', 'postTitleCount', 80);
+  bindCharCount('postDesc', 'postDescCount', 280);
+  document.querySelectorAll('.pw-toggle').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const field = document.getElementById(btn.dataset.target);
+      const showing = field.type === 'text';
+      field.type = showing ? 'password' : 'text';
+      btn.textContent = showing ? 'SHOW' : 'HIDE';
+    });
+  });
+  document.getElementById('toLogin').addEventListener('click', ()=>showAuthScreen('login'));
+  document.getElementById('toSignup').addEventListener('click', ()=>showAuthScreen('signup'));
+  document.getElementById('toForgot').addEventListener('click', ()=>{
+    document.getElementById('loginForm').style.display='none';
+    document.getElementById('forgotForm').style.display='block';
+  });
+  document.getElementById('backToLoginFromForgot').addEventListener('click', ()=>{
+    document.getElementById('forgotForm').style.display='none';
+    showAuthScreen('login');
+  });
+  document.getElementById('recognizedLoginForm').addEventListener('submit', onRecognizedLogin);
+  document.getElementById('notThisUser').addEventListener('click', ()=>showPlainLogin());
+  document.getElementById('toForgotFromRecognized').addEventListener('click', ()=>{
+    document.getElementById('recognizedLoginForm').style.display='none';
+    document.getElementById('forgotForm').style.display='block';
+    if(RECOGNIZED_TG_USER && RECOGNIZED_TG_USER.telegram_username){
+      document.getElementById('forgotEmail').value = RECOGNIZED_TG_USER.telegram_username;
+    }
+  });
+
+  document.querySelectorAll('.navbtn[data-view]').forEach(b=>{ b.addEventListener('click', ()=>switchView(b.dataset.view)); });
+  document.getElementById('loginNavBtn').addEventListener('click', ()=>showAuthScreen('login'));
+  document.getElementById('backToBrowse').addEventListener('click', ()=>enterGuestApp());
+
+  document.getElementById('typeFilter').addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    STATE.browseType = b.dataset.v;
+    [...document.getElementById('typeFilter').children].forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); renderBrowse();
+  });
+  document.getElementById('searchInput').addEventListener('input', e=>{ STATE.searchQ = e.target.value.toLowerCase(); renderBrowse(); });
+  document.getElementById('filterCountry').addEventListener('change', e=>{ STATE.browseCountry = e.target.value; renderBrowse(); });
+  document.getElementById('filterIndustry').addEventListener('change', e=>{ STATE.browseIndustry = e.target.value; renderBrowse(); });
+
+  document.getElementById('postType').addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    STATE.postType = b.dataset.v;
+    [...document.getElementById('postType').children].forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+  });
+  document.getElementById('submitLead').addEventListener('click', onSubmitLead);
+  document.getElementById('cancelReport').addEventListener('click', closeReportModal);
+
+  document.getElementById('proxyType').addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    STATE.proxyType = b.dataset.v;
+    [...document.getElementById('proxyType').children].forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+  });
+  document.getElementById('cancelProxyLead').addEventListener('click', closeProxyLeadModal);
+  document.getElementById('submitProxyLead').addEventListener('click', submitProxyLead);
+  document.getElementById('toBulkUpload').addEventListener('click', ()=>{ closeProxyLeadModal(); openCsvUploadModal(); });
+  document.getElementById('cancelCsvUpload').addEventListener('click', closeCsvUploadModal);
+  document.getElementById('downloadCsvTemplate').addEventListener('click', downloadCsvTemplate);
+  document.getElementById('submitCsvUpload').addEventListener('click', submitCsvUpload);
+}
+
+/* ============== AUTH ============== */
+async function withButtonBusy(btn, busyText, fn){
+  if(!btn) return fn();
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = busyText;
+  try{ return await fn(); }
+  finally{ btn.disabled = false; btn.textContent = original; }
+}
+
+async function onSignup(e){
+  e.preventDefault();
+  const email = document.getElementById('suEmail').value.trim();
+  if(REQUIRE_WORK_EMAIL && !isWorkEmail(email)){ toast('Please sign up with your work email — Gmail, Yahoo and other personal addresses are not allowed.'); return; }
+  const industries = [...document.querySelectorAll('#suIndustries .chip.on')].map(c=>c.dataset.v);
+  const password = document.getElementById('suPassword').value;
+  const name = document.getElementById('suName').value.trim();
+  if(/admin/i.test(name)){ toast('That name isn\'t available — please use your real name.'); return; }
+  const company = document.getElementById('suCompany').value.trim();
+  if(/admin/i.test(company)){ toast('That company name isn\'t available — please use your real company name.'); return; }
+  const telegram_username = document.getElementById('suTgUser').value.trim().replace(/@/g, '').replace(/\s+/g, '');
+  if(!/^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(telegram_username)){
+    toast('That doesn\'t look like a valid Telegram username — check it against your Telegram profile and try again.');
+    return;
+  }
+  const country = document.getElementById('suCountry').value;
+  const avatar_url = document.getElementById('suAvatarUrl').value.trim();
+  let telegram_id = null;
+  try{
+    telegram_id = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe
+      && window.Telegram.WebApp.initDataUnsafe.user && window.Telegram.WebApp.initDataUnsafe.user.id) || null;
+  }catch(e){}
+
+  let referred_by = null;
+  if(PENDING_REFERRAL_CODE){
+    const { data: refUser } = await sb.from('profiles').select('id').eq('referral_code', PENDING_REFERRAL_CODE).maybeSingle();
+    if(refUser) referred_by = refUser.id;
+  }
+
+  await withButtonBusy(e.submitter || e.target.querySelector('button[type="submit"]'), 'Creating account...', async ()=>{
+    const { data, error } = await sb.auth.signUp({
+      email, password,
+      options: { data: { name, company, telegram_username, telegram_id, country, industries, avatar_url, referred_by } }
+    });
+    if(error){
+      if(/registered|exists/i.test(error.message||'')){
+        toast('An account with that email already exists — try logging in.');
+      } else {
+        toast(error.message || 'Signup failed — please check your details and try again.');
+      }
+      return;
+    }
+    if(!data.session){
+      toast('Account created — check your email to confirm, then log in.');
+      return;
+    }
+    await afterAuthSuccess(name, true);
+  });
+}
+
+async function onRecognizedLogin(e){
+  e.preventDefault();
+  if(!RECOGNIZED_TG_USER) return;
+  const password = document.getElementById('recognizedPassword').value;
+  await withButtonBusy(e.submitter || e.target.querySelector('button[type="submit"]'), 'Logging in...', async ()=>{
+    const { error } = await sb.auth.signInWithPassword({ email: RECOGNIZED_TG_USER.email, password });
+    if(error){ toast('Incorrect password.'); return; }
+    await afterAuthSuccess();
+  });
+}
+
+async function onLogin(e){
+  e.preventDefault();
+  let identifier = document.getElementById('liEmail').value.trim();
+  const password = document.getElementById('liPassword').value;
+  if(identifier.startsWith('@')) identifier = identifier.slice(1);
+
+  await withButtonBusy(e.submitter || e.target.querySelector('button[type="submit"]'), 'Logging in...', async ()=>{
+    let email = identifier;
+    if(!identifier.includes('@')){
+      // Not an email — treat it as a Telegram username and look up the linked account.
+      const { data, error: lookupErr } = await sb.from('profiles').select('email').ilike('telegram_username', identifier).maybeSingle();
+      if(lookupErr || !data){ toast('No account found with that Telegram username.'); return; }
+      email = data.email;
+    }
+
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if(error){ toast('Incorrect email/username or password.'); return; }
+    await afterAuthSuccess();
+  });
+}
+
+async function afterAuthSuccess(freshName, isSignup){
+  const { data: { user } } = await sb.auth.getUser();
+  if(!user){ toast('Something went wrong — please try again.'); return; }
+
+  if(isSignup) toast('Account created — welcome to LeadX, '+freshName.split(' ')[0]+'!');
+
+  let me = null;
+  for(let attempt=0; attempt<5; attempt++){
+    await refreshAll();
+    me = STATE.users.find(u=>u.id===user.id);
+    if(me) break;
+    await new Promise(r=>setTimeout(r, 800));
+  }
+  if(!me){
+    if(isSignup){
+      // Account genuinely exists at this point — just send them to log in
+      // rather than implying signup failed, which would invite a duplicate attempt.
+      toast('Your account is ready — please log in to continue.');
+      await sb.auth.signOut();
+      document.getElementById('signupForm').style.display='none';
+      document.getElementById('loginForm').style.display='block';
+      document.getElementById('liEmail').value = user.email;
+    } else {
+      toast('Could not load your account right now — please try logging in again.');
+      await sb.auth.signOut();
+    }
+    return;
+  }
+  if(me.isBanned){ toast('This account has been suspended. Contact support.'); await sb.auth.signOut(); return; }
+  STATE.me = me;
+  if(!isSignup) toast('Welcome back, '+me.name.split(' ')[0]+'.');
+  enterApp();
+}
+
+async function onForgotPassword(e){
+  e.preventDefault();
+  let identifier = document.getElementById('forgotEmail').value.trim();
+  if(identifier.startsWith('@')) identifier = identifier.slice(1);
+  const redirect_to = window.location.href.split('#')[0];
+
+  await withButtonBusy(e.submitter || e.target.querySelector('button[type="submit"]'), 'Sending...', async ()=>{
+    if(identifier.includes('@')){
+      const { error } = await sb.auth.resetPasswordForEmail(identifier, { redirectTo: redirect_to });
+      if(error){ console.error(error); }
+    } else {
+      try{
+        await fetch(`${SUPABASE_URL}/functions/v1/reset-via-telegram`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+          body: JSON.stringify({ telegram_username: identifier, redirect_to })
+        });
+      }catch(err){ console.error(err); }
+    }
+    // Same message either way — don't reveal which accounts exist.
+    toast('If that account exists, a reset link is on its way.');
+    document.getElementById('forgotForm').reset();
+    document.getElementById('forgotForm').style.display='none';
+    showAuthScreen('login');
+  });
+}
+
+async function onSetNewPassword(e){
+  e.preventDefault();
+  const newPassword = document.getElementById('resetPassword').value;
+  await withButtonBusy(e.submitter || e.target.querySelector('button[type="submit"]'), 'Saving...', async ()=>{
+    const { error } = await sb.auth.updateUser({ password: newPassword });
+    if(error){ toast(error.message || 'Could not set new password — the link may have expired.'); return; }
+    toast('Password updated — please log in with your new password.');
+    await sb.auth.signOut();
+    document.getElementById('resetForm').reset();
+    document.getElementById('resetForm').style.display='none';
+    document.getElementById('loginForm').style.display='block';
+  });
+}
+
+function enterApp(){
+  hideAllScreens();
+  document.getElementById('mainApp').style.display = 'block';
+  document.getElementById('adminNavBtn').style.display = STATE.me.isAdmin ? 'flex' : 'none';
+  document.getElementById('loginNavBtn').style.display = 'none';
+  document.getElementById('postSponsoredWrap').style.display = STATE.me.isAdmin ? 'block' : 'none';
+  renderTicker(); renderBrowse(); renderProfile();
+  if(STATE.me.isAdmin) renderAdmin();
+  syncTelegramId();
+}
+
+// Backfills telegram_id for accounts that existed before it was captured
+// (or signed up outside Telegram) — happens quietly, no UI, so
+// notifications start working the next time they open the app via Telegram.
+async function syncTelegramId(){
+  try{
+    if(STATE.me.telegramId) return;
+    const tgId = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe
+      && window.Telegram.WebApp.initDataUnsafe.user && window.Telegram.WebApp.initDataUnsafe.user.id;
+    if(!tgId) return;
+    const { error } = await sb.from('profiles').update({ telegram_id: tgId }).eq('id', STATE.me.id);
+    if(!error){ STATE.me.telegramId = tgId; }
+  }catch(e){}
+}
+
+async function logout(){
+  await sb.auth.signOut(); STATE.me = null;
+  document.getElementById('signupForm').reset();
+  document.getElementById('loginForm').reset();
+  document.getElementById('signupForm').style.display = 'block';
+  document.getElementById('loginForm').style.display = 'none';
+  document.querySelectorAll('#suIndustries .chip.on').forEach(c=>c.classList.remove('on'));
+  await enterGuestApp();
+}
+window.logout = logout;
+
+/* ============== NAV ============== */
+function switchView(name){
+  if(!STATE.me && (name==='post' || name==='profile' || name==='admin')){
+    requireAuth(name==='post' ? 'Create a free account to post a lead.' : name==='profile' ? 'Create a free account to view your profile.' : 'Admins only — please log in.');
+    return;
+  }
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+  if(name==='profile') renderProfile();
+  if(name==='admin') renderAdmin();
+  if(name==='post'){
+    document.getElementById('postSponsoredWrap').style.display = (STATE.me && STATE.me.isAdmin) ? 'block' : 'none';
+    renderPostQuotaHint();
+  }
+}
+
+function renderTicker(){
+  const active = STATE.leads.filter(l=>l.status==='active');
+  const needs = active.filter(l=>l.type==='need').length;
+  const offers = active.filter(l=>l.type==='offer').length;
+  const countries = new Set(active.map(l=>l.country)).size;
+  document.getElementById('tickerStrip').innerHTML = `
+    <span><b class="dn">${needs}</b> needs open</span>
+    <span><b class="up">${offers}</b> offers open</span>
+    <span><b>${countries}</b> countries active</span>
+  `;
+}
+
+/* ============== BROWSE ============== */
+function renderBrowse(){
+  const list = document.getElementById('leadList');
+  let leads = STATE.leads.filter(l=>l.status==='active');
+  if(STATE.browseType!=='all') leads = leads.filter(l=>l.type===STATE.browseType);
+  if(STATE.browseCountry) leads = leads.filter(l=>l.country===STATE.browseCountry);
+  if(STATE.browseIndustry) leads = leads.filter(l=>l.industry===STATE.browseIndustry);
+  if(STATE.searchQ){
+    const q = STATE.searchQ;
+    leads = leads.filter(l=> l.title.toLowerCase().includes(q) || l.description.toLowerCase().includes(q) || (l.keywords||[]).some(k=>k.toLowerCase().includes(q)) );
+  }
+  leads.sort((a,b)=> (b.isSponsored?1:0)-(a.isSponsored?1:0) || b.createdAt-a.createdAt);
+
+  if(leads.length===0){
+    list.innerHTML = `<div class="empty"><div class="ico">&#9741;</div><p>No leads match yet.</p><p>Be the first to post one, or widen your filters.</p></div>`;
+    return;
+  }
+
+  const locked = STATE.me && !hasUnlockedBrowsing(STATE.me);
+  const visibleLeads = locked ? leads.slice(0, FREE_VIEW_LIMIT) : leads;
+  const hiddenCount = leads.length - visibleLeads.length;
+
+  list.innerHTML = visibleLeads.map(l=>{
+    const poster = findUser(l.postedBy);
+    const tgLink = poster && poster.telegramUsername ? `https://t.me/${poster.telegramUsername}` : null;
+    const translated = STATE.translations[l.id];
+    const showingTranslated = STATE.showTranslated[l.id] && translated;
+    const title = showingTranslated ? translated.title : l.title;
+    const desc = showingTranslated ? translated.description : l.description;
+    return `
+    <div class="ticket ${l.type}" data-lead-id="${l.id}">
+      <div class="spine"></div>
+      <div class="ticket-body">
+        <div class="ticket-top">
+          <span class="tag ${l.type}">${l.type==='need'?'NEED':'OFFER'}</span>
+          <span class="tag industry">${esc(l.industry)}</span>
+          ${l.isSponsored ? `<span class="tag sponsored">&#9733; SPONSORED</span>` : ''}
+          <span class="refcode">#${l.shortCode}</span>
+        </div>
+        <p class="ticket-title">${esc(title)}</p>
+        <p class="ticket-desc">${esc(desc)}</p>
+        ${showingTranslated ? `<div class="translated-note">Translated to ${translated.lang} &middot; machine translation</div>` : ''}
+        <div class="ticket-meta">
+          <span>${esc(l.country)}</span><span class="dot">&middot;</span>
+          ${STATE.me ? `${avatarHTML(poster, 'sm')}<span>${esc(poster?poster.name:'Unknown')}</span>${userIcons(poster)}${poster && poster.company ? `<span class="dot">&middot;</span><span>${esc(poster.company)}</span>` : ''}<span class="dot">&middot;</span>` : ''}
+          <span>${timeAgo(l.createdAt)}</span>
+        </div>
+        <div class="ticket-actions">
+          ${!STATE.me ? `<button class="btn btn-primary btn-sm" onclick="requireAuth('Create a free account to contact this poster.')">Contact poster</button>`
+            : (poster && poster.isOfficial ? '' : (tgLink ? `<a class="btn btn-primary btn-sm" href="${tgLink}" target="_blank" rel="noopener">Contact poster</a>` : `<button class="btn btn-sm" disabled>No Telegram set</button>`))}
+          ${STATE.me ? `<a class="btn btn-sm btn-ghost" href="https://t.me/${SUPPORT_TELEGRAM}" target="_blank" rel="noopener">Contact support</a>` : `<button class="btn btn-sm btn-ghost" onclick="requireAuth('Create a free account to contact support.')">Contact support</button>`}
+          <button class="translate-link" onclick="toggleTranslate('${l.id}')">${showingTranslated ? 'Show original' : 'Translate'}</button>
+          <button class="translate-link" onclick="shareLead('${l.shortCode}')">Share</button>
+          ${STATE.me ? `<button class="report-link" onclick="openReportModal('${l.id}')">Report</button>` : `<button class="report-link" onclick="requireAuth('Create a free account to report a lead.')">Report</button>`}
+        </div>
+      </div>
+    </div>`;
+  }).join('') + (hiddenCount > 0 ? renderUnlockCard(hiddenCount) : '');
+}
+
+function renderUnlockCard(hiddenCount){
+  const link = `https://t.me/${BOT_USERNAME}/${BOT_APP_SHORTNAME}?startapp=${STATE.me.referralCode||''}`;
+  return `
+    <div class="empty" style="text-align:left;">
+      <p style="font-weight:600; color:var(--paper); margin-bottom:6px;">You've hit your free browsing limit</p>
+      <p class="hint" style="margin-bottom:14px;">Free accounts can view ${FREE_VIEW_LIMIT} leads. There are ${hiddenCount} more waiting — invite one colleague to unlock unlimited browsing, no cost.</p>
+      <div class="avatar-edit" style="margin-bottom:10px;">
+        <input type="text" readonly value="${esc(link)}">
+        <button class="btn btn-sm" onclick="copyToClipboard('${link}', 'Invite link copied.')">Copy</button>
+      </div>
+      <p class="hint">More ways to unlock are coming soon.</p>
+    </div>`;
+}
+
+/* ============== TRANSLATE ============== */
+// Targets the logged-in user's own base-country language (falling back to
+// their browser language) and machine-translates a lead on demand via
+// MyMemory's free translation API.
+function userLangCode(){
+  const fromCountry = STATE.me ? COUNTRY_LANG[STATE.me.country] : null;
+  if(fromCountry) return fromCountry;
+  const raw = (navigator.language || navigator.userLanguage || 'en').split('-')[0].toLowerCase();
+  return raw || 'en';
+}
+async function toggleTranslate(id){
+  if(STATE.showTranslated[id]){ STATE.showTranslated[id] = false; renderBrowse(); return; }
+  const lang = userLangCode();
+  if(lang === 'en'){ toast('Already in English.'); return; }
+  if(STATE.translations[id] && STATE.translations[id].lang===lang){
+    STATE.showTranslated[id] = true; renderBrowse(); return;
+  }
+  const l = STATE.leads.find(x=>x.id===id); if(!l) return;
+  toast('Translating...');
+  try{
+    const [title, description] = await Promise.all([
+      translateText(l.title, lang), translateText(l.description, lang)
+    ]);
+    STATE.translations[id] = { lang, title, description };
+    STATE.showTranslated[id] = true;
+    renderBrowse();
+  }catch(e){
+    toast('Translation is unavailable right now.');
+  }
+}
+async function translateText(text, targetLang){
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${targetLang}&de=support@leadx.app`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if(!data || !data.responseData || !data.responseData.translatedText) throw new Error('bad response');
+  return data.responseData.translatedText;
+}
+window.toggleTranslate = toggleTranslate;
+
+/* ============== POST ============== */
+async function onSubmitLead(){
+  const title = document.getElementById('postTitle').value.trim();
+  const desc = document.getElementById('postDesc').value.trim().replace(/\r?\n+/g, ' | ');
+  const country = document.getElementById('postCountry').value;
+  const industry = document.getElementById('postIndustry').value;
+  const keywords = document.getElementById('postKeywords').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!title || !desc){ toast('Add a title and description first.'); return; }
+
+  const q = leadQuota(STATE.me);
+  if(q.remaining <= 0){
+    toast(`You've reached your ${q.cap}-lead limit. Delete an old lead${STATE.me.isVerified?'':' or get verified for more'} to post another.`);
+    return;
+  }
+
+  const isSponsored = STATE.me.isAdmin && document.getElementById('postSponsored').checked;
+  await withButtonBusy(document.getElementById('submitLead'), 'Posting...', async ()=>{
+    const { error } = await sb.from('leads').insert({
+      type: STATE.postType, title, description: desc, country, industry, keywords,
+      posted_by: STATE.me.id, is_sponsored: isSponsored
+    });
+    if(error){
+      console.error(error);
+      toast(/posting limit/i.test(error.message||'') ? error.message : 'Could not post — please try again.');
+      return;
+    }
+    toast('Submitted — your post will appear once it is approved.');
+    document.getElementById('postTitle').value='';
+    document.getElementById('postDesc').value='';
+    document.getElementById('postKeywords').value='';
+    document.getElementById('postSponsored').checked = false;
+    document.getElementById('postTitleCount').textContent = '0 / 80';
+    document.getElementById('postDescCount').textContent = '0 / 280';
+    await refreshAll();
+    renderTicker(); switchView('browse'); renderBrowse(); if(STATE.me.isAdmin) renderAdmin();
+  });
+}
+
+/* ============== REPORTING ============== */
+function renderReportReasons(){
+  document.getElementById('reportReasons').innerHTML = REPORT_REASONS.map(r=>`<div class="reason-opt" data-r="${esc(r)}">${esc(r)}</div>`).join('');
+  document.getElementById('reportReasons').addEventListener('click', e=>{
+    const el = e.target.closest('.reason-opt'); if(!el) return; submitReport(el.dataset.r);
+  });
+}
+function openReportModal(leadId){ STATE.reportingLeadId = leadId; document.getElementById('reportModalBack').classList.add('show'); }
+function closeReportModal(){ document.getElementById('reportModalBack').classList.remove('show'); STATE.reportingLeadId = null; }
+
+function openProxyLeadModal(){ document.getElementById('proxyLeadModalBack').classList.add('show'); }
+function closeProxyLeadModal(){ document.getElementById('proxyLeadModalBack').classList.remove('show'); }
+window.openProxyLeadModal = openProxyLeadModal;
+window.closeProxyLeadModal = closeProxyLeadModal;
+
+async function submitProxyLead(){
+  const first_name = document.getElementById('proxyName').value.trim();
+  const telegram_username = document.getElementById('proxyTgUser').value.trim().replace(/@/g,'').replace(/\s+/g,'');
+  const telegram_id_raw = document.getElementById('proxyTgId').value.trim();
+  const title = document.getElementById('proxyTitle').value.trim();
+  const description = document.getElementById('proxyDesc').value.trim().replace(/\r?\n+/g, ' | ');
+  const country = document.getElementById('proxyCountry').value;
+  const industry = document.getElementById('proxyIndustry').value;
+
+  if(!first_name || !title || !description){ toast('Fill in their name, title, and description first.'); return; }
+  if(!/^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(telegram_username)){ toast('That Telegram username doesn\'t look valid — check it and try again.'); return; }
+
+  const { data: { session } } = await sb.auth.getSession();
+  if(!session){ toast('Your session expired — please log in again.'); return; }
+
+  await withButtonBusy(document.getElementById('submitProxyLead'), 'Posting...', async ()=>{
+    try{
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/post-for-contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          first_name, telegram_username,
+          telegram_id: telegram_id_raw ? Number(telegram_id_raw) : null,
+          type: STATE.proxyType, title, description, country, industry
+        })
+      });
+      const result = await res.json();
+      if(!res.ok || result.error){ toast(result.error || 'Could not post — please try again.'); return; }
+      toast(`Posted for ${first_name} — pending approval like any other lead.`);
+      closeProxyLeadModal();
+      document.getElementById('proxyName').value = '';
+      document.getElementById('proxyTgUser').value = '';
+      document.getElementById('proxyTgId').value = '';
+      document.getElementById('proxyTitle').value = '';
+      document.getElementById('proxyDesc').value = '';
+      await refreshAll(); renderAdmin();
+    }catch(err){
+      console.error(err); toast('Could not post — please try again.');
+    }
+  });
+}
+window.submitProxyLead = submitProxyLead;
+
+/* ============== BULK UPLOAD (CSV) ============== */
+function openCsvUploadModal(){
+  document.getElementById('csvFileInput').value = '';
+  document.getElementById('csvResults').innerHTML = '';
+  document.getElementById('csvUploadModalBack').classList.add('show');
+}
+function closeCsvUploadModal(){ document.getElementById('csvUploadModalBack').classList.remove('show'); }
+window.openCsvUploadModal = openCsvUploadModal;
+window.closeCsvUploadModal = closeCsvUploadModal;
+
+function downloadCsvTemplate(){
+  const header = 'first_name,telegram_username,telegram_id,type,title,description,country,industry';
+  const example = 'James,james_omondi,123456789,need,"Looking for KYC provider","Need a compliant onboarding flow for East Africa",Kenya,KYC/AML';
+  const blob = new Blob([header + '\n' + example + '\n'], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'leadx_bulk_template.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+window.downloadCsvTemplate = downloadCsvTemplate;
+
+// Small hand-rolled CSV parser — handles quoted fields containing commas
+// and escaped quotes ("") without needing an external library.
+function parseCsv(text){
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for(let i=0; i<text.length; i++){
+    const c = text[i], next = text[i+1];
+    if(inQuotes){
+      if(c === '"' && next === '"'){ field += '"'; i++; }
+      else if(c === '"'){ inQuotes = false; }
+      else field += c;
+    } else {
+      if(c === '"') inQuotes = true;
+      else if(c === ','){ row.push(field); field = ''; }
+      else if(c === '\n' || c === '\r'){
+        if(field !== '' || row.length){ row.push(field); rows.push(row); row = []; field = ''; }
+        if(c === '\r' && next === '\n') i++;
+      } else field += c;
+    }
+  }
+  if(field !== '' || row.length){ row.push(field); rows.push(row); }
+  if(rows.length===0) return [];
+  const header = rows[0].map(h=>h.trim());
+  return rows.slice(1).filter(r=>r.some(v=>v.trim()!=='')).map(r=>{
+    const obj = {};
+    header.forEach((h,i)=>{ obj[h] = (r[i]||'').trim(); });
+    return obj;
+  });
+}
+
+function logCsvResult(text, ok){
+  const el = document.getElementById('csvResults');
+  const line = document.createElement('div');
+  line.className = 'hint';
+  line.style.color = ok ? '#2ECC71' : '#FF4D4D';
+  line.textContent = (ok ? '\u2713 ' : '\u2717 ') + text;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function submitCsvUpload(){
+  const file = document.getElementById('csvFileInput').files[0];
+  if(!file){ toast('Choose a CSV file first.'); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if(!session){ toast('Your session expired — please log in again.'); return; }
+
+  const text = await file.text();
+  const rows = parseCsv(text);
+  if(rows.length===0){ toast('No rows found in that file.'); return; }
+
+  document.getElementById('csvResults').innerHTML = '';
+  await withButtonBusy(document.getElementById('submitCsvUpload'), `Posting 0/${rows.length}...`, async ()=>{
+    let done = 0, okCount = 0;
+    const btn = document.getElementById('submitCsvUpload');
+    for(const row of rows){
+      done++;
+      btn.textContent = `Posting ${done}/${rows.length}...`;
+      const label = `${row.first_name || '?'} (@${row.telegram_username || '?'})`;
+
+      if(!/^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(row.telegram_username || '')){
+        logCsvResult(`${label} — invalid Telegram username, skipped`, false); continue;
+      }
+      if(!COUNTRIES.includes(row.country)){
+        logCsvResult(`${label} — country "${row.country}" doesn't match LeadX's list, skipped`, false); continue;
+      }
+      if(!INDUSTRIES.includes(row.industry)){
+        logCsvResult(`${label} — industry "${row.industry}" doesn't match LeadX's list, skipped`, false); continue;
+      }
+      if(!row.first_name || !row.title || !row.description || !(row.type==='need'||row.type==='offer')){
+        logCsvResult(`${label} — missing a required field, skipped`, false); continue;
+      }
+
+      try{
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/post-for-contact`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            first_name: row.first_name, telegram_username: row.telegram_username,
+            telegram_id: row.telegram_id ? Number(row.telegram_id) : null,
+            type: row.type, title: row.title,
+            description: row.description.replace(/\r?\n+/g, ' | '),
+            country: row.country, industry: row.industry
+          })
+        });
+        const result = await res.json();
+        if(!res.ok || result.error){ logCsvResult(`${label} — ${result.error || 'failed'}`, false); }
+        else { logCsvResult(`${label} — posted`, true); okCount++; }
+      }catch(err){
+        logCsvResult(`${label} — network error`, false);
+      }
+    }
+    toast(`Done — ${okCount} of ${rows.length} posted.`);
+    await refreshAll(); renderAdmin();
+  });
+}
+window.submitCsvUpload = submitCsvUpload;
+async function submitReport(reason){
+  const leadId = STATE.reportingLeadId;
+  const reasonsEl = document.getElementById('reportReasons');
+  reasonsEl.style.pointerEvents = 'none'; reasonsEl.style.opacity = '.5';
+  const { error } = await sb.from('reports').insert({ lead_id: leadId, reporter_id: STATE.me.id, reason });
+  reasonsEl.style.pointerEvents = ''; reasonsEl.style.opacity = '';
+  if(error){ console.error(error); toast('Could not submit the report — please try again.'); return; }
+  closeReportModal(); toast('Reported. Our team will review it.');
+  await refreshAll();
+  renderBrowse(); if(STATE.me.isAdmin) renderAdmin();
+}
+window.openReportModal = openReportModal;
+
+async function saveAvatarUrl(){
+  const val = document.getElementById('avatarUrlInput').value.trim();
+  const { error } = await sb.from('profiles').update({ avatar_url: val }).eq('id', STATE.me.id);
+  if(error){ console.error(error); toast('Could not update photo — please try again.'); return; }
+  STATE.me.avatarUrl = val;
+  const cached = STATE.users.find(u=>u.id===STATE.me.id); if(cached) cached.avatarUrl = val;
+  toast(val ? 'Profile photo updated.' : 'Profile photo removed.');
+  renderProfile(); renderBrowse();
+}
+window.saveAvatarUrl = saveAvatarUrl;
+
+function copyReferralLink(){
+  const input = document.getElementById('referralLinkInput');
+  input.select(); input.setSelectionRange(0, 99999);
+  try{
+    navigator.clipboard.writeText(input.value).then(()=>toast('Invite link copied.')).catch(()=>document.execCommand('copy') && toast('Invite link copied.'));
+  }catch(e){
+    document.execCommand('copy'); toast('Invite link copied.');
+  }
+}
+window.copyReferralLink = copyReferralLink;
+
+/* ============== PROFILE ============== */
+function renderProfile(){
+  const u = STATE.me;
+  const badges = computeBadges(u);
+  const myLeads = STATE.leads.filter(l=>l.postedBy===u.id).sort((a,b)=>b.createdAt-a.createdAt);
+  const activeCount = myLeads.filter(l=>l.status==='active').length;
+
+  document.getElementById('view-profile').innerHTML = `
+    <div class="profile-head">
+      ${avatarHTML(u)}
+      <div>
+        <p class="profile-name">${esc(u.name)}${userIcons(u)}</p>
+        <p class="profile-sub">${esc(u.company)} &middot; ${esc(u.country)}</p>
+        <p class="profile-sub">@${esc(u.telegramUsername)}</p>
+      </div>
+    </div>
+    <div class="avatar-edit">
+      <input type="text" id="avatarUrlInput" placeholder="Paste a photo URL..." value="${esc(u.avatarUrl||'')}">
+      <button class="btn btn-sm" onclick="saveAvatarUrl()">Save</button>
+    </div>
+    ${(u.industries||[]).length ? `<div class="badges-row" style="margin-top:10px;">${u.industries.map(i=>`<span class="tag industry">${esc(i)}</span>`).join('')}</div>` : ''}
+    <div class="badges-row">
+      ${badges.length? badges.map(b=>`<span class="badge ${b}">${BADGE_LABEL[b]}</span>`).join('') : '<span class="hint">No badges yet — post leads to earn them.</span>'}
+    </div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="n">${myLeads.length}</div><div class="l">leads posted</div></div>
+      <div class="stat-box"><div class="n">${activeCount}</div><div class="l">currently active</div></div>
+    </div>
+    <div class="referral-box">
+      <label>Your invite link</label>
+      <div class="avatar-edit">
+        <input type="text" id="referralLinkInput" readonly value="https://t.me/${BOT_USERNAME}/${BOT_APP_SHORTNAME}?startapp=${esc(u.referralCode||'')}">
+        <button class="btn btn-sm" onclick="copyReferralLink()">Copy</button>
+      </div>
+      <p class="hint">${STATE.users.filter(x=>x.referredBy===u.id).length} people have joined through your link.</p>
+    </div>
+    <div class="hint">Member since ${new Date(u.createdAt).toLocaleDateString()}</div>
+
+    <div class="section-title">My leads</div>
+    <div id="myLeadsList">
+      ${myLeads.length===0? '<div class="empty"><p>You have not posted anything yet.</p></div>' :
+        myLeads.map(l=>`
+        <div class="ticket ${l.type}" style="margin-bottom:10px;">
+          <div class="spine"></div>
+          <div class="ticket-body">
+            <div class="ticket-top">
+              <span class="tag ${l.type}">${l.type==='need'?'NEED':'OFFER'}</span>
+              ${l.isSponsored ? `<span class="tag sponsored">&#9733; SPONSORED</span>` : ''}
+              <span class="pill-status ${l.status}">${l.status}</span>
+              <span class="refcode">#${l.shortCode}</span>
+            </div>
+            <p class="ticket-title">${esc(l.title)}</p>
+            <div class="ticket-meta"><span>${timeAgo(l.createdAt)}</span></div>
+            <div class="ticket-actions">
+              ${l.status==='active' ? `<button class="btn btn-sm btn-ghost" onclick="closeLead('${l.id}')">Mark closed</button>` : ''}
+              ${l.status!=='removed' ? `<button class="btn btn-sm btn-danger" onclick="deleteLead('${l.id}')">Delete</button>` : ''}
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>
+    <div style="margin-top:26px;"><button class="btn btn-block" onclick="logout()">Log out</button></div>
+  `;
+}
+async function closeLead(id){
+  const { error } = await sb.from('leads').update({ status:'closed' }).eq('id', id);
+  if(error){ console.error(error); toast('Could not update — please try again.'); return; }
+  await refreshAll();
+  renderProfile(); renderBrowse(); renderTicker(); toast('Marked as closed.');
+}
+async function deleteLead(id){
+  const { error } = await sb.from('leads').update({ status:'removed' }).eq('id', id);
+  if(error){ console.error(error); toast('Could not delete — please try again.'); return; }
+  await refreshAll();
+  renderProfile(); renderBrowse(); renderTicker(); toast('Lead deleted.');
+}
+window.closeLead = closeLead; window.deleteLead = deleteLead;
+
+/* ============== ADMIN ============== */
+function renderAdmin(){
+  const el = document.getElementById('view-admin');
+  el.innerHTML = `
+    <div class="section-title">Admin panel</div>
+    <div class="admin-tabs">
+      <button class="admin-tab ${STATE.adminTab==='users'?'on':''}" onclick="setAdminTab('users')">Users</button>
+      <button class="admin-tab ${STATE.adminTab==='leads'?'on':''}" onclick="setAdminTab('leads')">Leads</button>
+      <button class="admin-tab ${STATE.adminTab==='reports'?'on':''}" onclick="setAdminTab('reports')">Reports</button>
+    </div>
+    <div class="card" id="adminContent"></div>
+  `;
+  const content = document.getElementById('adminContent');
+  if(STATE.adminTab==='users') content.innerHTML = renderAdminUsers();
+  if(STATE.adminTab==='leads') content.innerHTML = renderAdminLeads();
+  if(STATE.adminTab==='reports') content.innerHTML = renderAdminReports();
+}
+function setAdminTab(t){ STATE.adminTab = t; renderAdmin(); }
+window.setAdminTab = setAdminTab;
+
+function renderAdminUsers(){
+  if(STATE.users.length===0) return `<div class="empty"><p>No members yet.</p></div>`;
+  return STATE.users.map(u=>`
+    <div class="row-item">
+      <p class="ri-title">${esc(u.name)}${userIcons(u)}</p>
+      <p class="ri-sub">${esc(u.company)} &middot; @${esc(u.telegramUsername)} &middot;
+        <span class="pill-status ${u.isBanned?'banned':'active'}">${u.isBanned?'banned':'active'}</span></p>
+      <div class="row-actions">
+        <button class="btn btn-sm toggle-btn verify ${u.isVerified?'state-on':''}" onclick="toggleVerified('${u.id}')">${u.isVerified? '\u2605 Verified' : 'Verify'}</button>
+        <button class="btn btn-sm toggle-btn ban ${u.isBanned?'state-on':''}" onclick="toggleBanned('${u.id}')">${u.isBanned? '\u2605 Banned' : 'Ban'}</button>
+        <button class="btn btn-sm ${u.isOfficial?'toggle-btn state-on verify':''}" onclick="toggleOfficial('${u.id}')">${u.isOfficial? '\u25C6 Official' : 'Mark official'}</button>
+      </div>
+    </div>
+  `).join('');
+}
+function renderAdminLeads(){
+  const leads = [...STATE.leads].sort((a,b)=>{
+    const rank = s => s==='pending' ? 0 : s==='review' ? 1 : 2;
+    return rank(a.status)-rank(b.status) || b.createdAt-a.createdAt;
+  });
+  const proxyBtn = `<button class="btn btn-sm btn-primary" style="margin-bottom:14px;" onclick="openProxyLeadModal()">+ Post on behalf of a contact</button>`;
+  if(leads.length===0) return proxyBtn + `<div class="empty"><p>No leads posted yet.</p></div>`;
+  return proxyBtn + leads.map(l=>{
+    const poster = findUser(l.postedBy);
+    return `
+    <div class="row-item">
+      <p class="ri-title">${esc(l.title)} ${l.isSponsored?sponsoredIcon():''}</p>
+      <p class="ri-sub">${l.type.toUpperCase()} &middot; ${esc(poster?poster.name:'?')} &middot; ${l.reportCount||0} reports &middot; <span class="pill-status ${l.status}">${l.status}</span></p>
+      <div class="row-actions">
+        ${l.status==='pending' ? `<button class="btn btn-sm btn-primary" onclick="adminApproveLead('${l.id}')">Approve</button>` : ''}
+        ${l.status!=='removed' ? `<button class="btn btn-sm btn-danger" onclick="adminRemoveLead('${l.id}')">Remove</button>` : `<button class="btn btn-sm" onclick="adminRestoreLead('${l.id}')">Restore</button>`}
+        <button class="btn btn-sm ${l.isSponsored?'toggle-btn state-on verify':''}" onclick="adminToggleSponsored('${l.id}')">${l.isSponsored ? '\u2605 Sponsored' : 'Mark sponsored'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function renderAdminReports(){
+  const open = STATE.reports.filter(r=>r.status==='open').sort((a,b)=>b.createdAt-a.createdAt);
+  if(open.length===0) return `<div class="empty"><p>No open reports. Clean desk.</p></div>`;
+  return open.map(r=>{
+    const lead = STATE.leads.find(l=>l.id===r.leadId);
+    const reporter = findUser(r.reporterId);
+    return `
+    <div class="row-item">
+      <p class="ri-title">${lead?esc(lead.title):'(lead deleted)'}</p>
+      <p class="ri-sub">${esc(r.reason)} &middot; by ${reporter?esc(reporter.name):'?'} &middot; ${timeAgo(r.createdAt)}</p>
+      <div class="row-actions">
+        <button class="btn btn-sm" onclick="resolveReport('${r.id}')">Dismiss</button>
+        ${lead? `<button class="btn btn-sm btn-danger" onclick="resolveAndRemove('${r.id}','${lead.id}')">Remove lead</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+async function toggleVerified(id){
+  const u = findUser(id); if(!u) return;
+  const { error } = await sb.from('moderation_flags').update({ is_verified: !u.isVerified }).eq('user_id', id);
+  if(error){ console.error(error); toast('Could not update — please try again.'); return; }
+  await refreshAll(); renderAdmin(); renderBrowse();
+  toast(!u.isVerified ? 'User verified.' : 'Verification removed.');
+}
+async function toggleBanned(id){
+  const u = findUser(id); if(!u) return;
+  const { error } = await sb.from('moderation_flags').update({ is_banned: !u.isBanned }).eq('user_id', id);
+  if(error){ console.error(error); toast('Could not update — please try again.'); return; }
+  await refreshAll(); renderAdmin();
+  toast(!u.isBanned ? 'User banned.' : 'User unbanned.');
+}
+async function toggleOfficial(id){
+  const u = findUser(id); if(!u) return;
+  const { error } = await sb.from('moderation_flags').update({ is_official: !u.isOfficial }).eq('user_id', id);
+  if(error){ console.error(error); toast('Could not update — please try again.'); return; }
+  await refreshAll(); renderAdmin(); renderBrowse();
+  toast(!u.isOfficial ? 'Marked as an official LeadX account — unlimited posting, no "Contact poster" shown on their leads.' : 'Official status removed.');
+}
+async function adminApproveLead(id){
+  const { error } = await sb.from('leads').update({ status:'active' }).eq('id', id);
+  if(error){ console.error(error); toast('Could not approve — please try again.'); return; }
+  await refreshAll(); renderAdmin(); renderBrowse(); renderTicker();
+  toast('Lead approved and posted to the desk.');
+}
+async function adminToggleSponsored(id){
+  const l = STATE.leads.find(x=>x.id===id); if(!l) return;
+  const { error } = await sb.from('leads').update({ is_sponsored: !l.isSponsored }).eq('id', id);
+  if(error){ console.error(error); toast('Could not update — please try again.'); return; }
+  await refreshAll(); renderAdmin(); renderBrowse();
+  toast(!l.isSponsored ? 'Marked as sponsored.' : 'Sponsored tag removed.');
+}
+async function adminRemoveLead(id){
+  const { error } = await sb.from('leads').update({ status:'removed' }).eq('id', id);
+  if(error){ console.error(error); toast('Could not remove — please try again.'); return; }
+  await refreshAll(); renderAdmin(); renderBrowse(); renderTicker();
+}
+async function adminRestoreLead(id){
+  const { error } = await sb.from('leads').update({ status:'active', report_count:0 }).eq('id', id);
+  if(error){ console.error(error); toast('Could not restore — please try again.'); return; }
+  await refreshAll(); renderAdmin(); renderBrowse(); renderTicker();
+}
+async function resolveReport(id){
+  const { error } = await sb.from('reports').update({ status:'resolved' }).eq('id', id);
+  if(error){ console.error(error); toast('Could not resolve — please try again.'); return; }
+  await refreshAll(); renderAdmin();
+}
+async function resolveAndRemove(reportId, leadId){ await adminRemoveLead(leadId); await resolveReport(reportId); }
+window.toggleVerified = toggleVerified; window.toggleBanned = toggleBanned; window.toggleOfficial = toggleOfficial;
+window.adminApproveLead = adminApproveLead; window.adminToggleSponsored = adminToggleSponsored;
+window.adminRemoveLead = adminRemoveLead; window.adminRestoreLead = adminRestoreLead;
+window.resolveReport = resolveReport; window.resolveAndRemove = resolveAndRemove;
+
+init();
+</script>
+
+
+</body>
+</html>
