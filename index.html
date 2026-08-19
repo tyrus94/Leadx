@@ -557,7 +557,7 @@ async function fetchDirectory(){
       industries: p.industries || [], bio: p.bio || '', avatarUrl: p.avatar_url || '',
       referralCode: p.referral_code || '', referredBy: p.referred_by || null,
       createdAt: new Date(p.created_at).getTime(),
-      isAdmin: !!f.is_admin, isOfficial: !!f.is_official, isVerified: !!f.is_verified, isBanned: !!f.is_banned
+      isAdmin: !!f.is_admin, isOfficial: !!f.is_official, isVerified: !!f.is_verified, isBanned: !!f.is_banned, isProxy: !!f.is_proxy
     };
   });
 }
@@ -1172,6 +1172,19 @@ function enterApp(){
   renderTicker(); renderBrowse(); renderProfile();
   if(STATE.me.isAdmin) renderAdmin();
   syncTelegramId();
+  clearProxyFlag();
+}
+
+// A proxy account (created via "post on behalf of a contact") can only be
+// reached by successfully logging in — the original random password was
+// never handed to anyone, so the only path in is a password reset. Reaching
+// this point at all means they've genuinely claimed the account.
+async function clearProxyFlag(){
+  try{
+    if(!STATE.me.isProxy) return;
+    const { error } = await sb.from('moderation_flags').update({ is_proxy: false }).eq('user_id', STATE.me.id);
+    if(!error){ STATE.me.isProxy = false; }
+  }catch(e){}
 }
 
 // Backfills telegram_id for accounts that existed before it was captured
@@ -1691,7 +1704,7 @@ function renderAdminUsers(){
   if(STATE.users.length===0) return `<div class="empty"><p>No members yet.</p></div>`;
   return STATE.users.map(u=>`
     <div class="row-item">
-      <p class="ri-title">${esc(u.name)}${userIcons(u)}</p>
+      <p class="ri-title">${esc(u.name)}${userIcons(u)}${u.isProxy ? ' <span class="hint" style="display:inline; color:var(--faint);">(unclaimed)</span>' : ''}</p>
       <p class="ri-sub">${esc(u.company)} &middot; @${esc(u.telegramUsername)} &middot;
         <span class="pill-status ${u.isBanned?'banned':'active'}">${u.isBanned?'banned':'active'}</span></p>
       <div class="row-actions">
