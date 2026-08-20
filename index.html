@@ -367,10 +367,11 @@
 
       <label>Their first name</label>
       <input type="text" id="proxyName" required>
-      <label>Their Telegram username <span class="hint" style="display:inline">(no @)</span></label>
-      <input type="text" id="proxyTgUser" required placeholder="e.g. james_omondi">
-      <label>Their Telegram numeric ID <span class="hint" style="display:inline">(optional, enables notifications)</span></label>
+      <label>Their Telegram username <span class="hint" style="display:inline">(no @, optional if you have their ID)</span></label>
+      <input type="text" id="proxyTgUser" placeholder="e.g. james_omondi">
+      <label>Their Telegram numeric ID <span class="hint" style="display:inline">(optional if you have their username)</span></label>
       <input type="text" id="proxyTgId" placeholder="e.g. 123456789">
+      <div class="hint">At least one of the two above is required — a username gets them a clickable contact link, an ID alone still makes a real, notifiable account.</div>
 
       <div class="seg" id="proxyType" style="margin:14px 0 4px;">
         <button data-v="need" class="on need">THEY NEED</button>
@@ -389,21 +390,49 @@
         <button class="btn btn-block" id="cancelProxyLead">Cancel</button>
         <button class="btn btn-primary btn-block" id="submitProxyLead">Post for them</button>
       </div>
-      <div style="text-align:center; margin-top:14px;"><a id="toBulkUpload" style="font-size:12px; cursor:pointer; color:var(--muted);">Have several? Upload a CSV instead &rsaquo;</a></div>
+      <div style="text-align:center; margin-top:14px; display:flex; flex-direction:column; gap:6px;">
+        <a id="toBulkUpload" style="font-size:12px; cursor:pointer; color:var(--muted);">Have several with requests? Upload a CSV &rsaquo;</a>
+        <a id="toBulkContacts" style="font-size:12px; cursor:pointer; color:var(--muted);">Just adding contacts, no request yet? Upload a CSV &rsaquo;</a>
+      </div>
     </div>
   </div>
 
   <div class="modal-back" id="csvUploadModalBack">
     <div class="modal" style="max-height:85vh; overflow-y:auto;">
-      <h3>Bulk upload contacts</h3>
-      <p class="hint" style="margin-bottom:10px;">One row per person. Columns: <code>first_name, telegram_username, telegram_id, type, title, description, country, industry</code>. <code>telegram_id</code> can be left blank. <code>type</code> must be <code>need</code> or <code>offer</code>. <code>country</code> and <code>industry</code> must match LeadX's exact spelling.</p>
+      <h3>Bulk upload contacts + requests</h3>
+      <p class="hint" style="margin-bottom:10px;">One row per person. Columns: <code>first_name, telegram_username, telegram_id, type, title, description, country, industry</code>. Each row needs a <code>telegram_username</code> OR a <code>telegram_id</code> — not necessarily both. <code>type</code> must be <code>need</code> or <code>offer</code>. <code>country</code> and <code>industry</code> must match LeadX's exact spelling.</p>
       <button class="btn btn-sm" id="downloadCsvTemplate" style="margin-bottom:14px;">Download CSV template</button>
+
+      <label>Publish schedule</label>
+      <select id="csvStagger">
+        <option value="0">Immediately (pending your approval, as usual)</option>
+        <option value="2">Stagger — 1 every 2 hours</option>
+        <option value="6">Stagger — 1 every 6 hours</option>
+        <option value="24">Stagger — 1 every 24 hours</option>
+      </select>
+      <div class="hint" style="margin-bottom:10px;">Staggered leads still start pending, then go live on their own on schedule — no manual approval needed.</div>
+
       <label>CSV file</label>
       <input type="file" id="csvFileInput" accept=".csv">
       <div id="csvResults" style="margin-top:14px;"></div>
       <div style="margin-top:16px; display:flex; gap:8px;">
         <button class="btn btn-block" id="cancelCsvUpload">Close</button>
         <button class="btn btn-primary btn-block" id="submitCsvUpload">Upload &amp; post all</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-back" id="csvContactsModalBack">
+    <div class="modal" style="max-height:85vh; overflow-y:auto;">
+      <h3>Bulk add contacts (no request yet)</h3>
+      <p class="hint" style="margin-bottom:10px;">Just creates claimable accounts — nothing gets posted. Columns: <code>first_name, telegram_username, telegram_id</code>. Each row needs a username OR an ID.</p>
+      <button class="btn btn-sm" id="downloadCsvContactsTemplate" style="margin-bottom:14px;">Download CSV template</button>
+      <label>CSV file</label>
+      <input type="file" id="csvContactsFileInput" accept=".csv">
+      <div id="csvContactsResults" style="margin-top:14px;"></div>
+      <div style="margin-top:16px; display:flex; gap:8px;">
+        <button class="btn btn-block" id="cancelCsvContacts">Close</button>
+        <button class="btn btn-primary btn-block" id="submitCsvContacts">Upload &amp; create all</button>
       </div>
     </div>
   </div>
@@ -992,9 +1021,13 @@ function bindEvents(){
   document.getElementById('cancelProxyLead').addEventListener('click', closeProxyLeadModal);
   document.getElementById('submitProxyLead').addEventListener('click', submitProxyLead);
   document.getElementById('toBulkUpload').addEventListener('click', ()=>{ closeProxyLeadModal(); openCsvUploadModal(); });
+  document.getElementById('toBulkContacts').addEventListener('click', ()=>{ closeProxyLeadModal(); openCsvContactsModal(); });
   document.getElementById('cancelCsvUpload').addEventListener('click', closeCsvUploadModal);
   document.getElementById('downloadCsvTemplate').addEventListener('click', downloadCsvTemplate);
   document.getElementById('submitCsvUpload').addEventListener('click', submitCsvUpload);
+  document.getElementById('cancelCsvContacts').addEventListener('click', closeCsvContactsModal);
+  document.getElementById('downloadCsvContactsTemplate').addEventListener('click', downloadCsvContactsTemplate);
+  document.getElementById('submitCsvContacts').addEventListener('click', submitCsvContacts);
 }
 
 /* ============== AUTH ============== */
@@ -1417,7 +1450,8 @@ async function submitProxyLead(){
   const industry = document.getElementById('proxyIndustry').value;
 
   if(!first_name || !title || !description){ toast('Fill in their name, title, and description first.'); return; }
-  if(!/^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(telegram_username)){ toast('That Telegram username doesn\'t look valid — check it and try again.'); return; }
+  if(!telegram_username && !telegram_id_raw){ toast('Add their Telegram username or numeric ID — at least one.'); return; }
+  if(telegram_username && !/^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(telegram_username)){ toast('That Telegram username doesn\'t look valid — check it and try again.'); return; }
 
   const { data: { session } } = await sb.auth.getSession();
   if(!session){ toast('Your session expired — please log in again.'); return; }
@@ -1428,7 +1462,7 @@ async function submitProxyLead(){
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({
-          first_name, telegram_username,
+          first_name, telegram_username: telegram_username || null,
           telegram_id: telegram_id_raw ? Number(telegram_id_raw) : null,
           type: STATE.proxyType, title, description, country, industry
         })
@@ -1518,21 +1552,28 @@ async function submitCsvUpload(){
   const { data: { session } } = await sb.auth.getSession();
   if(!session){ toast('Your session expired — please log in again.'); return; }
 
+  const staggerHours = Number(document.getElementById('csvStagger').value) || 0;
   const text = await file.text();
   const rows = parseCsv(text);
   if(rows.length===0){ toast('No rows found in that file.'); return; }
 
   document.getElementById('csvResults').innerHTML = '';
   await withButtonBusy(document.getElementById('submitCsvUpload'), `Posting 0/${rows.length}...`, async ()=>{
-    let done = 0, okCount = 0;
+    let done = 0, okCount = 0, scheduledSlot = 0;
     const btn = document.getElementById('submitCsvUpload');
     for(const row of rows){
       done++;
       btn.textContent = `Posting ${done}/${rows.length}...`;
-      const label = `${row.first_name || '?'} (@${row.telegram_username || '?'})`;
+      const idLabel = row.telegram_username ? '@'+row.telegram_username : (row.telegram_id ? 'ID:'+row.telegram_id : '?');
+      const label = `${row.first_name || '?'} (${idLabel})`;
 
-      if(!/^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(row.telegram_username || '')){
+      const hasUsername = row.telegram_username && /^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(row.telegram_username);
+      const hasId = row.telegram_id && /^\d+$/.test(row.telegram_id);
+      if(row.telegram_username && !hasUsername){
         logCsvResult(`${label} — invalid Telegram username, skipped`, false); continue;
+      }
+      if(!hasUsername && !hasId){
+        logCsvResult(`${label} — needs a Telegram username or numeric ID, skipped`, false); continue;
       }
       if(!COUNTRIES.includes(row.country)){
         logCsvResult(`${label} — country "${row.country}" doesn't match LeadX's list, skipped`, false); continue;
@@ -1544,30 +1585,123 @@ async function submitCsvUpload(){
         logCsvResult(`${label} — missing a required field, skipped`, false); continue;
       }
 
+      const body = {
+        first_name: row.first_name, telegram_username: hasUsername ? row.telegram_username : null,
+        telegram_id: hasId ? Number(row.telegram_id) : null,
+        type: row.type, title: row.title,
+        description: row.description.replace(/\r?\n+/g, ' | '),
+        country: row.country, industry: row.industry
+      };
+      if(staggerHours > 0){
+        body.scheduled_publish_at = new Date(Date.now() + scheduledSlot * staggerHours * 3600000).toISOString();
+        scheduledSlot++;
+      }
+
+      try{
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/clever-responder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify(body)
+        });
+        const result = await res.json();
+        if(!res.ok || result.error){ logCsvResult(`${label} — ${result.error || 'failed'}`, false); }
+        else { logCsvResult(`${label} — ${staggerHours > 0 ? 'queued' : 'posted'}`, true); okCount++; }
+      }catch(err){
+        logCsvResult(`${label} — network error`, false);
+      }
+    }
+    toast(`Done — ${okCount} of ${rows.length} ${staggerHours > 0 ? 'queued' : 'posted'}.`);
+    await refreshAll(); renderAdmin();
+  });
+}
+window.submitCsvUpload = submitCsvUpload;
+
+/* ============== BULK UPLOAD (CSV) — ACCOUNTS ONLY, NO LEAD ============== */
+function openCsvContactsModal(){
+  document.getElementById('csvContactsFileInput').value = '';
+  document.getElementById('csvContactsResults').innerHTML = '';
+  document.getElementById('csvContactsModalBack').classList.add('show');
+}
+function closeCsvContactsModal(){ document.getElementById('csvContactsModalBack').classList.remove('show'); }
+window.openCsvContactsModal = openCsvContactsModal;
+window.closeCsvContactsModal = closeCsvContactsModal;
+
+function downloadCsvContactsTemplate(){
+  const header = 'first_name,telegram_username,telegram_id';
+  const example1 = 'James,james_omondi,123456789';
+  const example2 = 'Mariana,,987654321';
+  const blob = new Blob([header + '\n' + example1 + '\n' + example2 + '\n'], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'leadx_contacts_template.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+window.downloadCsvContactsTemplate = downloadCsvContactsTemplate;
+
+function logCsvContactsResult(text, ok){
+  const el = document.getElementById('csvContactsResults');
+  const line = document.createElement('div');
+  line.className = 'hint';
+  line.style.color = ok ? '#2ECC71' : '#FF4D4D';
+  line.textContent = (ok ? '\u2713 ' : '\u2717 ') + text;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function submitCsvContacts(){
+  const file = document.getElementById('csvContactsFileInput').files[0];
+  if(!file){ toast('Choose a CSV file first.'); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if(!session){ toast('Your session expired — please log in again.'); return; }
+
+  const text = await file.text();
+  const rows = parseCsv(text);
+  if(rows.length===0){ toast('No rows found in that file.'); return; }
+
+  document.getElementById('csvContactsResults').innerHTML = '';
+  await withButtonBusy(document.getElementById('submitCsvContacts'), `Creating 0/${rows.length}...`, async ()=>{
+    let done = 0, okCount = 0;
+    const btn = document.getElementById('submitCsvContacts');
+    for(const row of rows){
+      done++;
+      btn.textContent = `Creating ${done}/${rows.length}...`;
+      const idLabel = row.telegram_username ? '@'+row.telegram_username : (row.telegram_id ? 'ID:'+row.telegram_id : '?');
+      const label = `${row.first_name || '?'} (${idLabel})`;
+
+      const hasUsername = row.telegram_username && /^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(row.telegram_username);
+      const hasId = row.telegram_id && /^\d+$/.test(row.telegram_id);
+      if(row.telegram_username && !hasUsername){
+        logCsvContactsResult(`${label} — invalid Telegram username, skipped`, false); continue;
+      }
+      if(!hasUsername && !hasId){
+        logCsvContactsResult(`${label} — needs a Telegram username or numeric ID, skipped`, false); continue;
+      }
+      if(!row.first_name){
+        logCsvContactsResult(`${label} — missing first name, skipped`, false); continue;
+      }
+
       try{
         const res = await fetch(`${SUPABASE_URL}/functions/v1/clever-responder`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${session.access_token}` },
           body: JSON.stringify({
-            first_name: row.first_name, telegram_username: row.telegram_username,
-            telegram_id: row.telegram_id ? Number(row.telegram_id) : null,
-            type: row.type, title: row.title,
-            description: row.description.replace(/\r?\n+/g, ' | '),
-            country: row.country, industry: row.industry
+            first_name: row.first_name, telegram_username: hasUsername ? row.telegram_username : null,
+            telegram_id: hasId ? Number(row.telegram_id) : null
           })
         });
         const result = await res.json();
-        if(!res.ok || result.error){ logCsvResult(`${label} — ${result.error || 'failed'}`, false); }
-        else { logCsvResult(`${label} — posted`, true); okCount++; }
+        if(!res.ok || result.error){ logCsvContactsResult(`${label} — ${result.error || 'failed'}`, false); }
+        else { logCsvContactsResult(`${label} — account ready`, true); okCount++; }
       }catch(err){
-        logCsvResult(`${label} — network error`, false);
+        logCsvContactsResult(`${label} — network error`, false);
       }
     }
-    toast(`Done — ${okCount} of ${rows.length} posted.`);
+    toast(`Done — ${okCount} of ${rows.length} accounts ready.`);
     await refreshAll(); renderAdmin();
   });
 }
-window.submitCsvUpload = submitCsvUpload;
+window.submitCsvContacts = submitCsvContacts;
 async function submitReport(reason){
   const leadId = STATE.reportingLeadId;
   const reasonsEl = document.getElementById('reportReasons');
@@ -1701,8 +1835,9 @@ function setAdminTab(t){ STATE.adminTab = t; renderAdmin(); }
 window.setAdminTab = setAdminTab;
 
 function renderAdminUsers(){
-  if(STATE.users.length===0) return `<div class="empty"><p>No members yet.</p></div>`;
-  return STATE.users.map(u=>`
+  const bulkBtn = `<button class="btn btn-sm btn-primary" style="margin-bottom:14px;" onclick="openCsvContactsModal()">+ Bulk add contacts (username/ID list)</button>`;
+  if(STATE.users.length===0) return bulkBtn + `<div class="empty"><p>No members yet.</p></div>`;
+  return bulkBtn + STATE.users.map(u=>`
     <div class="row-item">
       <p class="ri-title">${esc(u.name)}${userIcons(u)}${u.isProxy ? ' <span class="hint" style="display:inline; color:var(--faint);">(unclaimed)</span>' : ''}</p>
       <p class="ri-sub">${esc(u.company)} &middot; @${esc(u.telegramUsername)} &middot;
