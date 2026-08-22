@@ -1438,12 +1438,23 @@ async function onSubmitLead(){
     return;
   }
 
-  const isSponsored = STATE.me.isAdmin && document.getElementById('postSponsored').checked;
+  let isSponsored = STATE.me.isAdmin && document.getElementById('postSponsored').checked;
+  let sponsoredUntil = null;
+  if(isSponsored){
+    const daysInput = prompt('Sponsor for how many days? (it will expire and un-sponsor itself automatically)', '7');
+    if(daysInput === null){ isSponsored = false; }
+    else{
+      const days = Math.max(1, Number(daysInput) || 7);
+      sponsoredUntil = new Date(Date.now() + days*86400000).toISOString();
+    }
+  }
   await withButtonBusy(document.getElementById('submitLead'), 'Posting...', async ()=>{
-    const { error } = await sb.from('leads').insert({
+    const insertRow = {
       type: STATE.postType, title, description: desc, country, industry, keywords,
       posted_by: STATE.me.id, is_sponsored: isSponsored
-    });
+    };
+    if(sponsoredUntil) insertRow.sponsored_until = sponsoredUntil;
+    const { error } = await sb.from('leads').insert(insertRow);
     if(error){
       console.error(error);
       toast(/posting limit/i.test(error.message||'') ? error.message : 'Could not post — please try again.');
@@ -1911,11 +1922,12 @@ function renderAdminLeads(){
     return `
     <div class="row-item">
       <p class="ri-title">${esc(l.title)} ${l.isSponsored?sponsoredIcon():''}</p>
-      <p class="ri-sub">${l.type.toUpperCase()} &middot; ${esc(poster?poster.name:'?')} &middot; ${l.reportCount||0} reports &middot; <span class="pill-status ${l.status}">${l.status}</span></p>
+      <p class="ri-sub">${l.type.toUpperCase()} &middot; ${esc(poster?poster.name:'?')} &middot; ${l.reportCount||0} reports &middot; <span class="pill-status ${l.status}">${l.status}</span>${l.isSponsored ? (l.sponsoredUntil ? ` &middot; expires ${new Date(l.sponsoredUntil).toLocaleDateString()}` : ` &middot; <span style="color:var(--need);">no expiry set</span>`) : ''}</p>
       <div class="row-actions">
         ${l.status==='pending' ? `<button class="btn btn-sm btn-primary" onclick="adminApproveLead('${l.id}')">Approve</button>` : ''}
         ${l.status!=='removed' ? `<button class="btn btn-sm btn-danger" onclick="adminRemoveLead('${l.id}')">Remove</button>` : `<button class="btn btn-sm" onclick="adminRestoreLead('${l.id}')">Restore</button>`}
         <button class="btn btn-sm ${l.isSponsored?'toggle-btn state-on verify':''}" onclick="adminToggleSponsored('${l.id}')">${l.isSponsored ? '\u2605 Sponsored' : 'Mark sponsored'}</button>
+        ${l.isSponsored && !l.sponsoredUntil ? `<button class="btn btn-sm btn-danger" onclick="adminSetSponsorExpiry('${l.id}')">Set expiry</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -1966,11 +1978,39 @@ async function adminApproveLead(id){
 }
 async function adminToggleSponsored(id){
   const l = STATE.leads.find(x=>x.id===id); if(!l) return;
-  const { error } = await sb.from('leads').update({ is_sponsored: !l.isSponsored }).eq('id', id);
+
+  if(l.isSponsored){
+    const { error } = await sb.from('leads').update({ is_sponsored: false, sponsored_until: null }).eq('id', id);
+    if(error){ console.error(error); toast('Could not update — please try again.'); return; }
+    await refreshAll(); renderAdmin(); renderBrowse();
+    toast('Sponsored tag removed.');
+    return;
+  }
+
+  const daysInput = prompt('Sponsor for how many days? (it will expire and un-sponsor itself automatically)', '7');
+  if(daysInput === null) return; // cancelled
+  const days = Math.max(1, Number(daysInput) || 7);
+  const sponsoredUntil = new Date(Date.now() + days*86400000).toISOString();
+
+  const { error } = await sb.from('leads').update({ is_sponsored: true, sponsored_until: sponsoredUntil }).eq('id', id);
   if(error){ console.error(error); toast('Could not update — please try again.'); return; }
   await refreshAll(); renderAdmin(); renderBrowse();
-  toast(!l.isSponsored ? 'Marked as sponsored.' : 'Sponsored tag removed.');
+  toast(`Sponsored for ${days} day${days===1?'':'s'} — it'll expire automatically, no need to remember.`);
 }
+
+// For leads that were marked sponsored before expiries existed — gives
+// them an end date without needing to remove and re-add the sponsorship.
+async function adminSetSponsorExpiry(id){
+  const daysInput = prompt('Expire this sponsorship in how many days from now?', '7');
+  if(daysInput === null) return;
+  const days = Math.max(1, Number(daysInput) || 7);
+  const sponsoredUntil = new Date(Date.now() + days*86400000).toISOString();
+  const { error } = await sb.from('leads').update({ sponsored_until: sponsoredUntil }).eq('id', id);
+  if(error){ console.error(error); toast('Could not update — please try again.'); return; }
+  await refreshAll(); renderAdmin();
+  toast(`Will expire in ${days} day${days===1?'':'s'}.`);
+}
+window.adminSetSponsorExpiry = adminSetSponsorExpiry;
 async function adminRemoveLead(id){
   const { error } = await sb.from('leads').update({ status:'removed' }).eq('id', id);
   if(error){ console.error(error); toast('Could not remove — please try again.'); return; }
