@@ -1694,7 +1694,7 @@ async function submitCsvContacts(){
         });
         const result = await res.json();
         if(!res.ok || result.error){ logCsvContactsResult(`${label} — ${result.error || 'failed'}`, false); }
-        else { logCsvContactsResult(`${label} — account ready`, true); okCount++; }
+        else { logCsvContactsResult(`${label} — ${result.account_existed ? 'already exists, skipped' : 'account created'}`, true); okCount++; }
       }catch(err){
         logCsvContactsResult(`${label} — network error`, false);
       }
