@@ -74,6 +74,8 @@
   .seg button.on.all{background:var(--accent); color:#0B1533;}
 
   .ticket{display:flex; border-radius:10px; overflow:hidden; margin-bottom:12px; background:var(--panel); border:1px solid var(--line-soft);}
+  .ticket.is-sponsored{background:linear-gradient(180deg, rgba(245,197,24,0.06), var(--panel) 40%); border-color:rgba(245,197,24,0.25);}
+  .ticket.is-top-pick{background:linear-gradient(180deg, rgba(255,169,64,0.10), var(--panel) 45%); border-color:rgba(255,169,64,0.35);}
   .ticket .spine{width:5px; flex-shrink:0;}
   .ticket.need .spine{background:var(--need);} .ticket.offer .spine{background:var(--offer);}
   .ticket-body{padding:13px 14px; flex:1; min-width:0;}
@@ -596,7 +598,7 @@ async function fetchLeads(){
   return (data||[]).map(l=>({
     id: l.id, shortCode: l.short_code, type: l.type, title: l.title, description: l.description,
     country: l.country, industry: l.industry, keywords: l.keywords || [], postedBy: l.posted_by,
-    status: l.status, isSponsored: l.is_sponsored, sponsoredUntil: l.sponsored_until, reportCount: l.report_count,
+    status: l.status, isSponsored: l.is_sponsored, sponsoredUntil: l.sponsored_until, sponsorPlacement: l.sponsor_placement || 'standard', reportCount: l.report_count,
     createdAt: new Date(l.created_at).getTime()
   }));
 }
@@ -1321,7 +1323,17 @@ function renderBrowse(){
     leads = leads.filter(l=> l.title.toLowerCase().includes(q) || l.description.toLowerCase().includes(q) || (l.keywords||[]).some(k=>k.toLowerCase().includes(q)) );
   }
   leads.sort((a,b)=>b.createdAt-a.createdAt);
-  leads = interleaveSponsored(leads);
+
+  // A top_dashboard pick pins #1 only when viewing all industries; a
+  // top_industry pick pins #1 only when filtered to its own industry.
+  let pinned = null;
+  if(!STATE.browseIndustry){
+    pinned = leads.find(l=>l.sponsorPlacement==='top_dashboard');
+  } else {
+    pinned = leads.find(l=>l.sponsorPlacement==='top_industry' && l.industry===STATE.browseIndustry);
+  }
+  const rest = pinned ? leads.filter(l=>l.id!==pinned.id) : leads;
+  leads = pinned ? [pinned, ...interleaveSponsored(rest)] : interleaveSponsored(rest);
 
   if(leads.length===0){
     list.innerHTML = `<div class="empty"><div class="ico">&#9741;</div><p>No leads match yet.</p><p>Be the first to post one, or widen your filters.</p></div>`;
@@ -1340,13 +1352,13 @@ function renderBrowse(){
     const title = showingTranslated ? translated.title : l.title;
     const desc = showingTranslated ? translated.description : l.description;
     return `
-    <div class="ticket ${l.type}" data-lead-id="${l.id}">
+    <div class="ticket ${l.type} ${(l.sponsorPlacement==='top_dashboard' || l.sponsorPlacement==='top_industry') ? 'is-top-pick' : (l.isSponsored ? 'is-sponsored' : '')}" data-lead-id="${l.id}">
       <div class="spine"></div>
       <div class="ticket-body">
         <div class="ticket-top">
           <span class="tag ${l.type}">${l.type==='need'?'NEED':'OFFER'}</span>
           <span class="tag industry">${esc(l.industry)}</span>
-          ${l.isSponsored ? `<span class="tag sponsored">&#9733; SPONSORED</span>` : ''}
+          ${(l.sponsorPlacement==='top_dashboard' || l.sponsorPlacement==='top_industry') ? `<span class="tag sponsored" style="background:#3A2410; color:#FFA940;">&#128293; TOP PICK</span>` : (l.isSponsored ? `<span class="tag sponsored">&#9733; SPONSORED</span>` : '')}
           <span class="refcode">#${l.shortCode}</span>
         </div>
         <p class="ticket-title">${esc(title)}</p>
@@ -1980,22 +1992,37 @@ async function adminToggleSponsored(id){
   const l = STATE.leads.find(x=>x.id===id); if(!l) return;
 
   if(l.isSponsored){
-    const { error } = await sb.from('leads').update({ is_sponsored: false, sponsored_until: null }).eq('id', id);
+    const { error } = await sb.from('leads').update({ is_sponsored: false, sponsored_until: null, sponsor_placement: 'standard' }).eq('id', id);
     if(error){ console.error(error); toast('Could not update — please try again.'); return; }
     await refreshAll(); renderAdmin(); renderBrowse();
     toast('Sponsored tag removed.');
     return;
   }
 
+  const placementInput = prompt(
+    `Placement:\n1 = Standard (mixed randomly through the list)\n2 = Top of main dashboard (only one lead can hold this — bumps whoever has it)\n3 = Top of "${l.industry}" category (only one lead per industry can hold this)`,
+    '1'
+  );
+  if(placementInput === null) return; // cancelled
+  const placement = placementInput.trim()==='2' ? 'top_dashboard' : placementInput.trim()==='3' ? 'top_industry' : 'standard';
+
   const daysInput = prompt('Sponsor for how many days? (it will expire and un-sponsor itself automatically)', '7');
   if(daysInput === null) return; // cancelled
   const days = Math.max(1, Number(daysInput) || 7);
   const sponsoredUntil = new Date(Date.now() + days*86400000).toISOString();
 
-  const { error } = await sb.from('leads').update({ is_sponsored: true, sponsored_until: sponsoredUntil }).eq('id', id);
+  // Bump whoever currently holds this exclusive slot back to standard.
+  if(placement === 'top_dashboard'){
+    await sb.from('leads').update({ sponsor_placement: 'standard' }).eq('sponsor_placement', 'top_dashboard');
+  } else if(placement === 'top_industry'){
+    await sb.from('leads').update({ sponsor_placement: 'standard' }).eq('sponsor_placement', 'top_industry').eq('industry', l.industry);
+  }
+
+  const { error } = await sb.from('leads').update({ is_sponsored: true, sponsored_until: sponsoredUntil, sponsor_placement: placement }).eq('id', id);
   if(error){ console.error(error); toast('Could not update — please try again.'); return; }
   await refreshAll(); renderAdmin(); renderBrowse();
-  toast(`Sponsored for ${days} day${days===1?'':'s'} — it'll expire automatically, no need to remember.`);
+  const placementLabel = placement==='top_dashboard' ? ' as the top dashboard pick' : placement==='top_industry' ? ` as the top "${l.industry}" pick` : '';
+  toast(`Sponsored${placementLabel} for ${days} day${days===1?'':'s'} — it'll expire automatically, no need to remember.`);
 }
 
 // For leads that were marked sponsored before expiries existed — gives
