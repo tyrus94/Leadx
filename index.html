@@ -1606,6 +1606,7 @@ async function submitCsvUpload(){
         });
         const result = await res.json();
         if(!res.ok || result.error){ logCsvResult(`${label} — ${result.error || 'failed'}`, false); }
+        else if(result.duplicate){ logCsvResult(`${label} — already posted this exact lead, skipped`, false); }
         else { logCsvResult(`${label} — ${staggerHours > 0 ? 'queued' : 'posted'}`, true); okCount++; }
       }catch(err){
         logCsvResult(`${label} — network error`, false);
