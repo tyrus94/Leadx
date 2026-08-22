@@ -586,7 +586,7 @@ async function fetchDirectory(){
       industries: p.industries || [], bio: p.bio || '', avatarUrl: p.avatar_url || '',
       referralCode: p.referral_code || '', referredBy: p.referred_by || null,
       createdAt: new Date(p.created_at).getTime(),
-      isAdmin: !!f.is_admin, isOfficial: !!f.is_official, isVerified: !!f.is_verified, isBanned: !!f.is_banned, isProxy: !!f.is_proxy
+      isAdmin: !!f.is_admin, isOfficial: !!f.is_official, isVerified: !!f.is_verified, isBanned: !!f.is_banned, isProxy: !!f.is_proxy, hasUsedFreeSponsor: !!f.has_used_free_sponsor
     };
   });
 }
@@ -596,7 +596,7 @@ async function fetchLeads(){
   return (data||[]).map(l=>({
     id: l.id, shortCode: l.short_code, type: l.type, title: l.title, description: l.description,
     country: l.country, industry: l.industry, keywords: l.keywords || [], postedBy: l.posted_by,
-    status: l.status, isSponsored: l.is_sponsored, reportCount: l.report_count,
+    status: l.status, isSponsored: l.is_sponsored, sponsoredUntil: l.sponsored_until, reportCount: l.report_count,
     createdAt: new Date(l.created_at).getTime()
   }));
 }
@@ -1276,6 +1276,40 @@ function renderTicker(){
 }
 
 /* ============== BROWSE ============== */
+// Deterministic pseudo-random 0-1 value from a string seed — same input
+// always gives the same output, so ordering stays stable across renders
+// within the same day instead of reshuffling on every re-render.
+function seededRandom(seed){
+  let h = 0;
+  for(let i=0; i<seed.length; i++){ h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0; }
+  return ((h >>> 0) % 10000) / 10000;
+}
+
+// Spreads sponsored posts evenly through the list instead of clumping
+// them all at the top. Which sponsored post lands in which slot rotates
+// once per day (via the date in the seed) rather than on every render.
+function interleaveSponsored(leads){
+  const sponsored = leads.filter(l=>l.isSponsored);
+  const organic = leads.filter(l=>!l.isSponsored);
+  if(sponsored.length === 0) return organic;
+
+  const daySeed = new Date().toISOString().slice(0,10);
+  const ordered = sponsored
+    .map(l=>({ l, r: seededRandom(l.id + daySeed) }))
+    .sort((a,b)=>a.r-b.r)
+    .map(x=>x.l);
+
+  const result = [];
+  const gap = Math.max(2, Math.round(organic.length / (ordered.length + 1)));
+  let idx = 0;
+  organic.forEach((lead, i)=>{
+    result.push(lead);
+    if((i+1) % gap === 0 && idx < ordered.length){ result.push(ordered[idx]); idx++; }
+  });
+  while(idx < ordered.length){ result.push(ordered[idx]); idx++; }
+  return result;
+}
+
 function renderBrowse(){
   const list = document.getElementById('leadList');
   let leads = STATE.leads.filter(l=>l.status==='active');
@@ -1286,7 +1320,8 @@ function renderBrowse(){
     const q = STATE.searchQ;
     leads = leads.filter(l=> l.title.toLowerCase().includes(q) || l.description.toLowerCase().includes(q) || (l.keywords||[]).some(k=>k.toLowerCase().includes(q)) );
   }
-  leads.sort((a,b)=> (b.isSponsored?1:0)-(a.isSponsored?1:0) || b.createdAt-a.createdAt);
+  leads.sort((a,b)=>b.createdAt-a.createdAt);
+  leads = interleaveSponsored(leads);
 
   if(leads.length===0){
     list.innerHTML = `<div class="empty"><div class="ico">&#9741;</div><p>No leads match yet.</p><p>Be the first to post one, or widen your filters.</p></div>`;
@@ -1792,13 +1827,16 @@ function renderProfile(){
             </div>
             <p class="ticket-title">${esc(l.title)}</p>
             <div class="ticket-meta"><span>${timeAgo(l.createdAt)}</span></div>
+            ${l.isSponsored && l.sponsoredUntil ? `<div class="hint">Sponsored until ${new Date(l.sponsoredUntil).toLocaleString()}</div>` : ''}
             <div class="ticket-actions">
               ${l.status==='active' ? `<button class="btn btn-sm btn-ghost" onclick="closeLead('${l.id}')">Mark closed</button>` : ''}
               ${l.status!=='removed' ? `<button class="btn btn-sm btn-danger" onclick="deleteLead('${l.id}')">Delete</button>` : ''}
+              ${(l.status==='active' && !l.isSponsored && !u.hasUsedFreeSponsor) ? `<button class="btn btn-sm toggle-btn state-on verify" onclick="claimFreeSponsor('${l.id}')">&#9733; Sponsor free for 24h</button>` : ''}
             </div>
           </div>
         </div>`).join('')}
     </div>
+    ${u.hasUsedFreeSponsor ? '' : `<p class="hint" style="margin-top:6px;">You have one free 24-hour sponsored slot available — use it on any active lead above.</p>`}
     <div style="margin-top:26px;"><button class="btn btn-block" onclick="logout()">Log out</button></div>
   `;
 }
@@ -1815,6 +1853,15 @@ async function deleteLead(id){
   renderProfile(); renderBrowse(); renderTicker(); toast('Lead deleted.');
 }
 window.closeLead = closeLead; window.deleteLead = deleteLead;
+
+async function claimFreeSponsor(leadId){
+  const { error } = await sb.rpc('claim_free_sponsor', { lead_id: leadId });
+  if(error){ toast(error.message || 'Could not claim your free sponsored slot — please try again.'); return; }
+  toast('Your lead is now sponsored for the next 24 hours!');
+  await refreshAll();
+  renderProfile(); renderBrowse();
+}
+window.claimFreeSponsor = claimFreeSponsor;
 
 /* ============== ADMIN ============== */
 function renderAdmin(){
