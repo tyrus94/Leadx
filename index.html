@@ -1378,7 +1378,10 @@ function renderBrowse(){
 
   list.innerHTML = visibleLeads.map(l=>{
     const poster = findUser(l.postedBy);
-    const tgLink = poster && poster.telegramUsername ? `https://t.me/${poster.telegramUsername}` : null;
+    const leadUrl = `https://t.me/${BOT_USERNAME}/${BOT_APP_SHORTNAME}?startapp=lead_${l.shortCode}`;
+    const posterMsg = encodeURIComponent(`Hi! I saw your LeadX listing "${l.title}" (#${l.shortCode}) and wanted to talk.\n\n${leadUrl}`);
+    const supportMsg = encodeURIComponent(`Hi! I have a question about lead #${l.shortCode} — "${l.title}".\n\n${leadUrl}`);
+    const tgLink = poster && poster.telegramUsername ? `https://t.me/${poster.telegramUsername}?text=${posterMsg}` : null;
     const translated = STATE.translations[l.id];
     const showingTranslated = STATE.showTranslated[l.id] && translated;
     const title = showingTranslated ? translated.title : l.title;
@@ -1404,7 +1407,7 @@ function renderBrowse(){
         <div class="ticket-actions">
           ${!STATE.me ? `<button class="btn btn-primary btn-sm" onclick="requireAuth('Create a free account to contact this poster.')">Contact poster</button>`
             : (poster && poster.isOfficial ? '' : (tgLink ? `<a class="btn btn-primary btn-sm" href="${tgLink}" target="_blank" rel="noopener">Contact poster</a>` : `<button class="btn btn-sm" disabled>No Telegram set</button>`))}
-          ${STATE.me ? `<a class="btn btn-sm btn-ghost" href="https://t.me/${SUPPORT_TELEGRAM}" target="_blank" rel="noopener">Contact support</a>` : `<button class="btn btn-sm btn-ghost" onclick="requireAuth('Create a free account to contact support.')">Contact support</button>`}
+          ${STATE.me ? `<a class="btn btn-sm btn-ghost" href="https://t.me/${SUPPORT_TELEGRAM}?text=${supportMsg}" target="_blank" rel="noopener">Contact support</a>` : `<button class="btn btn-sm btn-ghost" onclick="requireAuth('Create a free account to contact support.')">Contact support</button>`}
           <button class="translate-link" onclick="toggleTranslate('${l.id}')">${showingTranslated ? 'Show original' : 'Translate'}</button>
           <button class="translate-link" onclick="shareLead('${l.shortCode}')">Share</button>
           ${STATE.me ? `<button class="report-link" onclick="openReportModal('${l.id}')">Report</button>` : `<button class="report-link" onclick="requireAuth('Create a free account to report a lead.')">Report</button>`}
