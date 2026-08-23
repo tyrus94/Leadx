@@ -616,6 +616,28 @@ async function refreshAll(){
   if(list) list.classList.add('list-loading');
   const [users, leads, reports] = await Promise.all([fetchDirectory(), fetchLeads(), fetchReports()]);
   STATE.users = users; STATE.leads = leads; STATE.reports = reports;
+
+  // Under locked-down RLS, a non-admin's own table read only returns
+  // their own row — top up with narrow poster lookups for whichever
+  // leads are actually on screen, so names/companies/badges still show.
+  const posterIds = [...new Set(STATE.leads.map(l=>l.postedBy))].filter(id=>!STATE.users.some(u=>u.id===id));
+  if(posterIds.length){
+    const { data: posters } = await sb.rpc('get_profiles_by_ids', { ids: posterIds });
+    (posters||[]).forEach(p=>{
+      STATE.users.push({
+        id: p.id, name: p.name, company: p.company, telegramUsername: p.telegram_username || '',
+        avatarUrl: p.avatar_url || '', isAdmin: !!p.is_admin, isOfficial: !!p.is_official,
+        isVerified: !!p.is_verified, isBanned: !!p.is_banned,
+        email: '', telegramId: null, industries: [], referralCode: '', referredBy: null, isProxy: false, createdAt: 0
+      });
+    });
+  }
+
+  try{
+    const { data: count } = await sb.rpc('get_total_member_count');
+    STATE.totalMemberCount = Number(count) || STATE.users.length;
+  }catch(e){ STATE.totalMemberCount = STATE.users.length; }
+
   if(list) list.classList.remove('list-loading');
 }
 
@@ -693,8 +715,7 @@ const FREE_VIEW_LIMIT = 10;
 function hasUnlockedBrowsing(user){
   if(!user) return true; // guests aren't capped by this — separate, looser funnel
   if(user.isAdmin || user.isOfficial || user.isVerified) return true;
-  const referredCount = STATE.users.filter(u=>u.referredBy===user.id).length;
-  return referredCount >= 1;
+  return (user.referredCount || 0) >= 1;
 }
 
 // Posting caps: unverified accounts can have 3 leads live at once, verified up to 5.
@@ -748,8 +769,8 @@ async function checkRecognizedTelegramUser(){
   try{
     const tgUser = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user;
     if(!tgUser || !tgUser.username) return;
-    const { data } = await sb.from('profiles').select('id, name, email, telegram_username').ilike('telegram_username', tgUser.username).maybeSingle();
-    if(data) RECOGNIZED_TG_USER = data;
+    const { data } = await sb.rpc('lookup_by_telegram_username', { uname: tgUser.username });
+    if(data && data[0]) RECOGNIZED_TG_USER = data[0];
   }catch(e){}
 }
 
@@ -859,7 +880,8 @@ async function showSharedLead(code){
       </div>`;
     return;
   }
-  const { data: posterProfile } = await sb.from('profiles').select('name, company, country').eq('id', lead.posted_by).maybeSingle();
+  const { data: posterRows } = await sb.rpc('get_profiles_by_ids', { ids: [lead.posted_by] });
+  const posterProfile = posterRows && posterRows[0];
   CURRENT_SHARED_LEAD = lead;
   CURRENT_SHARED_POSTER = posterProfile;
   SHARED_LEAD_TRANSLATION = null;
@@ -1066,8 +1088,8 @@ async function onSignup(e){
 
   let referred_by = null;
   if(PENDING_REFERRAL_CODE){
-    const { data: refUser } = await sb.from('profiles').select('id').eq('referral_code', PENDING_REFERRAL_CODE).maybeSingle();
-    if(refUser) referred_by = refUser.id;
+    const { data: refId } = await sb.rpc('lookup_referrer_id_by_code', { code: PENDING_REFERRAL_CODE });
+    if(refId) referred_by = refId;
   }
 
   await withButtonBusy(e.submitter || e.target.querySelector('button[type="submit"]'), 'Creating account...', async ()=>{
@@ -1112,9 +1134,9 @@ async function onLogin(e){
     let email = identifier;
     if(!identifier.includes('@')){
       // Not an email — treat it as a Telegram username and look up the linked account.
-      const { data, error: lookupErr } = await sb.from('profiles').select('email').ilike('telegram_username', identifier).maybeSingle();
-      if(lookupErr || !data){ toast('No account found with that Telegram username.'); return; }
-      email = data.email;
+      const { data, error: lookupErr } = await sb.rpc('lookup_by_telegram_username', { uname: identifier });
+      if(lookupErr || !data || !data[0]){ toast('No account found with that Telegram username.'); return; }
+      email = data[0].email;
     }
 
     const { error } = await sb.auth.signInWithPassword({ email, password });
@@ -1208,6 +1230,16 @@ function enterApp(){
   if(STATE.me.isAdmin) renderAdmin();
   syncTelegramId();
   clearProxyFlag();
+  refreshReferralCount();
+}
+
+// Cached once per session rather than derived from STATE.users, since a
+// non-admin's own table read no longer includes other people's rows.
+async function refreshReferralCount(){
+  try{
+    const { data, error } = await sb.rpc('get_referral_count', { referrer: STATE.me.id });
+    if(!error){ STATE.me.referredCount = Number(data) || 0; renderProfile(); renderBrowse(); }
+  }catch(e){}
 }
 
 // A proxy account (created via "post on behalf of a contact") can only be
@@ -1217,7 +1249,7 @@ function enterApp(){
 async function clearProxyFlag(){
   try{
     if(!STATE.me.isProxy) return;
-    const { error } = await sb.from('moderation_flags').update({ is_proxy: false }).eq('user_id', STATE.me.id);
+    const { error } = await sb.rpc('clear_own_proxy_flag');
     if(!error){ STATE.me.isProxy = false; }
   }catch(e){}
 }
@@ -1273,7 +1305,7 @@ function renderTicker(){
     <span><b class="dn">${needs}</b> needs open</span>
     <span><b class="up">${offers}</b> offers open</span>
     <span><b>${countries}</b> countries active</span>
-    <span><b>${STATE.users.length}</b> members</span>
+    <span><b>${STATE.totalMemberCount ?? STATE.users.length}</b> members</span>
   `;
 }
 
@@ -1831,7 +1863,7 @@ function renderProfile(){
         <input type="text" id="referralLinkInput" readonly value="https://t.me/${BOT_USERNAME}/${BOT_APP_SHORTNAME}?startapp=${esc(u.referralCode||'')}">
         <button class="btn btn-sm" onclick="copyReferralLink()">Copy</button>
       </div>
-      <p class="hint">${STATE.users.filter(x=>x.referredBy===u.id).length} people have joined through your link.</p>
+      <p class="hint">${u.referredCount || 0} people have joined through your link.</p>
     </div>
     <div class="hint">Member since ${new Date(u.createdAt).toLocaleDateString()}</div>
 
