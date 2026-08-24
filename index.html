@@ -189,6 +189,14 @@
 <body>
 <div id="app">
 
+  <!-- ===================== LOADING (visible instantly, no JS needed) ===================== -->
+  <div id="loadingScreen" class="auth-wrap">
+    <div class="auth-card" style="text-align:center;">
+      <div class="brand" style="justify-content:center; margin-bottom:10px;">LEAD<span>X</span></div>
+      <p class="hint">Loading the desk...</p>
+    </div>
+  </div>
+
   <!-- ===================== AUTH ===================== -->
   <div id="authScreen" class="auth-wrap" style="display:none;">
     <div class="auth-card">
@@ -405,14 +413,9 @@
       <p class="hint" style="margin-bottom:10px;">One row per person. Columns: <code>first_name, telegram_username, telegram_id, type, title, description, country, industry</code>. Each row needs a <code>telegram_username</code> OR a <code>telegram_id</code> — not necessarily both. <code>type</code> must be <code>need</code> or <code>offer</code>. <code>country</code> and <code>industry</code> must match LeadX's exact spelling.</p>
       <button class="btn btn-sm" id="downloadCsvTemplate" style="margin-bottom:14px;">Download CSV template</button>
 
-      <label>Publish schedule</label>
-      <select id="csvStagger">
-        <option value="0">Immediately (pending your approval, as usual)</option>
-        <option value="2">Stagger — 1 every 2 hours</option>
-        <option value="6">Stagger — 1 every 6 hours</option>
-        <option value="24">Stagger — 1 every 24 hours</option>
-      </select>
-      <div class="hint" style="margin-bottom:10px;">Staggered leads still start pending, then go live on their own on schedule — no manual approval needed.</div>
+      <label>Delay before publishing</label>
+      <input type="number" id="csvDelayDays" min="0" step="1" value="0">
+      <div class="hint" style="margin-bottom:10px;">In whole days from now. 0 = post right away (still pending your approval, as usual). 1, 2, 3... = the whole batch goes live automatically that many days from now — no manual approval needed for those.</div>
 
       <label>CSV file</label>
       <input type="file" id="csvFileInput" accept=".csv">
@@ -536,6 +539,7 @@ let RECOVERY_MODE = /type=recovery/.test(AUTH_URL_PARAMS);
 const RECOVERY_LINK_ERROR = /error=/.test(AUTH_URL_PARAMS);
 
 function showResetPasswordScreen(){
+  document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'none';
   document.getElementById('sharedLeadScreen').style.display = 'none';
   document.getElementById('authScreen').style.display = 'flex';
@@ -552,6 +556,7 @@ if(RECOVERY_LINK_ERROR){
   const friendly = descMatch && /expired/i.test(descMatch[1])
     ? 'That reset link has expired. Enter your email below to get a new one.'
     : 'That reset link is no longer valid. Enter your email below to get a new one.';
+  document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'none';
   document.getElementById('sharedLeadScreen').style.display = 'none';
   document.getElementById('authScreen').style.display = 'flex';
@@ -821,6 +826,7 @@ async function init(){
 
 /* ============== SCREEN CONTROL ============== */
 function hideAllScreens(){
+  document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('sharedLeadScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'none';
@@ -1646,14 +1652,15 @@ async function submitCsvUpload(){
   const { data: { session } } = await sb.auth.getSession();
   if(!session){ toast('Your session expired — please log in again.'); return; }
 
-  const staggerHours = Number(document.getElementById('csvStagger').value) || 0;
+  const delayDays = Math.max(0, Math.round(Number(document.getElementById('csvDelayDays').value)) || 0);
+  const scheduledPublishAt = delayDays > 0 ? new Date(Date.now() + delayDays*86400000).toISOString() : null;
   const text = await file.text();
   const rows = parseCsv(text);
   if(rows.length===0){ toast('No rows found in that file.'); return; }
 
   document.getElementById('csvResults').innerHTML = '';
   await withButtonBusy(document.getElementById('submitCsvUpload'), `Posting 0/${rows.length}...`, async ()=>{
-    let done = 0, okCount = 0, scheduledSlot = 0;
+    let done = 0, okCount = 0;
     const btn = document.getElementById('submitCsvUpload');
     for(const row of rows){
       done++;
@@ -1686,10 +1693,7 @@ async function submitCsvUpload(){
         description: row.description.replace(/\r?\n+/g, ' | '),
         country: row.country, industry: row.industry
       };
-      if(staggerHours > 0){
-        body.scheduled_publish_at = new Date(Date.now() + scheduledSlot * staggerHours * 3600000).toISOString();
-        scheduledSlot++;
-      }
+      if(scheduledPublishAt) body.scheduled_publish_at = scheduledPublishAt;
 
       try{
         const res = await fetch(`${SUPABASE_URL}/functions/v1/clever-responder`, {
@@ -1700,12 +1704,12 @@ async function submitCsvUpload(){
         const result = await res.json();
         if(!res.ok || result.error){ logCsvResult(`${label} — ${result.error || 'failed'}`, false); }
         else if(result.duplicate){ logCsvResult(`${label} — already posted this exact lead, skipped`, false); }
-        else { logCsvResult(`${label} — ${staggerHours > 0 ? 'queued' : 'posted'}`, true); okCount++; }
+        else { logCsvResult(`${label} — ${scheduledPublishAt ? 'queued' : 'posted'}`, true); okCount++; }
       }catch(err){
         logCsvResult(`${label} — network error`, false);
       }
     }
-    toast(`Done — ${okCount} of ${rows.length} ${staggerHours > 0 ? 'queued' : 'posted'}.`);
+    toast(`Done — ${okCount} of ${rows.length} ${scheduledPublishAt ? `queued for ${new Date(scheduledPublishAt).toLocaleString()}` : 'posted'}.`);
     await refreshAll(); renderAdmin();
   });
 }
