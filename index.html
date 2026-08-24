@@ -73,7 +73,8 @@
   .seg button.on.offer{background:var(--offer); color:#04342C;}
   .seg button.on.all{background:var(--accent); color:#0B1533;}
 
-  .ticket{display:flex; border-radius:10px; overflow:hidden; margin-bottom:12px; background:var(--panel); border:1px solid var(--line-soft);}
+  .ticket{display:flex; border-radius:10px; overflow:hidden; margin-bottom:12px; background:var(--panel); border:1px solid var(--line-soft); transition:box-shadow .3s, border-color .3s;}
+  .ticket-highlight{border-color:rgba(255,169,64,0.7) !important; box-shadow:0 0 0 3px rgba(255,169,64,0.25);}
   .ticket.is-sponsored{background:linear-gradient(180deg, rgba(245,197,24,0.06), var(--panel) 40%); border-color:rgba(245,197,24,0.25);}
   .ticket.is-top-pick{background:linear-gradient(180deg, rgba(255,169,64,0.10), var(--panel) 45%); border-color:rgba(255,169,64,0.35);}
   .ticket .spine{width:5px; flex-shrink:0;}
@@ -413,9 +414,13 @@
       <p class="hint" style="margin-bottom:10px;">One row per person. Columns: <code>first_name, telegram_username, telegram_id, type, title, description, country, industry</code>. Each row needs a <code>telegram_username</code> OR a <code>telegram_id</code> — not necessarily both. <code>type</code> must be <code>need</code> or <code>offer</code>. <code>country</code> and <code>industry</code> must match LeadX's exact spelling.</p>
       <button class="btn btn-sm" id="downloadCsvTemplate" style="margin-bottom:14px;">Download CSV template</button>
 
-      <label>Delay before publishing</label>
+      <label>Start after (days from now)</label>
       <input type="number" id="csvDelayDays" min="0" step="1" value="0">
-      <div class="hint" style="margin-bottom:10px;">In whole days from now. 0 = post right away (still pending your approval, as usual). 1, 2, 3... = the whole batch goes live automatically that many days from now — no manual approval needed for those.</div>
+      <div class="hint">0 = start right away. 1, 2, 3... = the whole batch starts that many days from now.</div>
+
+      <label style="margin-top:10px;">Spacing between posts (hours)</label>
+      <input type="number" id="csvSpacingHours" min="0" step="1" value="0">
+      <div class="hint" style="margin-bottom:10px;">0 = everyone in this batch goes live together at the start time above. Any number spreads them out — e.g. 3 posts them 3 hours apart. Bulk uploads always publish automatically on schedule — no manual approval needed, even for "right away."</div>
 
       <label>CSV file</label>
       <input type="file" id="csvFileInput" accept=".csv">
@@ -1237,6 +1242,40 @@ function enterApp(){
   syncTelegramId();
   clearProxyFlag();
   refreshReferralCount();
+  jumpToSharedLeadIfAny();
+}
+
+// Handles arriving via a shared-lead link (autofilled contact message,
+// or a forwarded share link) while already logged in — previously this
+// silently dropped straight to generic Browse with no indication of
+// which lead the link was actually about.
+function jumpToSharedLeadIfAny(){
+  if(!SHARED_LEAD_CODE) return;
+  const code = SHARED_LEAD_CODE;
+  SHARED_LEAD_CODE = null; // consume it so it doesn't retrigger on later re-renders
+  window.history.replaceState(null, '', window.location.pathname);
+
+  const lead = STATE.leads.find(l=>l.shortCode===code);
+  if(!lead){ toast('That lead is no longer available.'); return; }
+
+  // Clear any active filters so the lead is guaranteed visible.
+  STATE.browseType = 'all'; STATE.browseCountry = ''; STATE.browseIndustry = ''; STATE.searchQ = '';
+  const searchInput = document.getElementById('searchInput'); if(searchInput) searchInput.value = '';
+  const countryFilter = document.getElementById('filterCountry'); if(countryFilter) countryFilter.value = '';
+  const industryFilter = document.getElementById('filterIndustry'); if(industryFilter) industryFilter.value = '';
+  document.querySelectorAll('#typeFilter button').forEach(b=>b.classList.toggle('on', b.dataset.v==='all'));
+
+  switchView('browse');
+  renderBrowse();
+
+  setTimeout(()=>{
+    const el = document.querySelector(`[data-lead-id="${lead.id}"]`);
+    if(el){
+      el.scrollIntoView({ behavior:'smooth', block:'center' });
+      el.classList.add('ticket-highlight');
+      setTimeout(()=>el.classList.remove('ticket-highlight'), 3000);
+    }
+  }, 100);
 }
 
 // Cached once per session rather than derived from STATE.users, since a
@@ -1275,13 +1314,18 @@ async function syncTelegramId(){
 }
 
 async function logout(){
-  await sb.auth.signOut(); STATE.me = null;
-  document.getElementById('signupForm').reset();
-  document.getElementById('loginForm').reset();
-  document.getElementById('signupForm').style.display = 'block';
-  document.getElementById('loginForm').style.display = 'none';
-  document.querySelectorAll('#suIndustries .chip.on').forEach(c=>c.classList.remove('on'));
-  await enterGuestApp();
+  await withButtonBusy(document.getElementById('logoutBtn'), 'Logging out...', async ()=>{
+    try{
+      await sb.auth.signOut();
+    }catch(e){ console.error(e); }
+    STATE.me = null;
+    document.getElementById('signupForm').reset();
+    document.getElementById('loginForm').reset();
+    document.getElementById('signupForm').style.display = 'block';
+    document.getElementById('loginForm').style.display = 'none';
+    document.querySelectorAll('#suIndustries .chip.on').forEach(c=>c.classList.remove('on'));
+    await enterGuestApp();
+  });
 }
 window.logout = logout;
 
@@ -1653,14 +1697,15 @@ async function submitCsvUpload(){
   if(!session){ toast('Your session expired — please log in again.'); return; }
 
   const delayDays = Math.max(0, Math.round(Number(document.getElementById('csvDelayDays').value)) || 0);
-  const scheduledPublishAt = delayDays > 0 ? new Date(Date.now() + delayDays*86400000).toISOString() : null;
+  const spacingHours = Math.max(0, Number(document.getElementById('csvSpacingHours').value) || 0);
+  const baseTime = Date.now() + delayDays*86400000;
   const text = await file.text();
   const rows = parseCsv(text);
   if(rows.length===0){ toast('No rows found in that file.'); return; }
 
   document.getElementById('csvResults').innerHTML = '';
   await withButtonBusy(document.getElementById('submitCsvUpload'), `Posting 0/${rows.length}...`, async ()=>{
-    let done = 0, okCount = 0;
+    let done = 0, okCount = 0, publishSlot = 0;
     const btn = document.getElementById('submitCsvUpload');
     for(const row of rows){
       done++;
@@ -1686,14 +1731,17 @@ async function submitCsvUpload(){
         logCsvResult(`${label} — missing a required field, skipped`, false); continue;
       }
 
+      const scheduledPublishAt = new Date(baseTime + publishSlot * spacingHours * 3600000).toISOString();
+      publishSlot++;
+
       const body = {
         first_name: row.first_name, telegram_username: hasUsername ? row.telegram_username : null,
         telegram_id: hasId ? Number(row.telegram_id) : null,
         type: row.type, title: row.title,
         description: row.description.replace(/\r?\n+/g, ' | '),
-        country: row.country, industry: row.industry
+        country: row.country, industry: row.industry,
+        scheduled_publish_at: scheduledPublishAt
       };
-      if(scheduledPublishAt) body.scheduled_publish_at = scheduledPublishAt;
 
       try{
         const res = await fetch(`${SUPABASE_URL}/functions/v1/clever-responder`, {
@@ -1704,12 +1752,12 @@ async function submitCsvUpload(){
         const result = await res.json();
         if(!res.ok || result.error){ logCsvResult(`${label} — ${result.error || 'failed'}`, false); }
         else if(result.duplicate){ logCsvResult(`${label} — already posted this exact lead, skipped`, false); }
-        else { logCsvResult(`${label} — ${scheduledPublishAt ? 'queued' : 'posted'}`, true); okCount++; }
+        else { logCsvResult(`${label} — queued for ${new Date(scheduledPublishAt).toLocaleString()}`, true); okCount++; }
       }catch(err){
         logCsvResult(`${label} — network error`, false);
       }
     }
-    toast(`Done — ${okCount} of ${rows.length} ${scheduledPublishAt ? `queued for ${new Date(scheduledPublishAt).toLocaleString()}` : 'posted'}.`);
+    toast(`Done — ${okCount} of ${rows.length} queued. They'll go live automatically on schedule.`);
     await refreshAll(); renderAdmin();
   });
 }
@@ -1899,7 +1947,7 @@ function renderProfile(){
         </div>`).join('')}
     </div>
     ${u.hasUsedFreeSponsor ? '' : `<p class="hint" style="margin-top:6px;">You have one free 24-hour sponsored slot available — use it on any active lead above.</p>`}
-    <div style="margin-top:26px;"><button class="btn btn-block" onclick="logout()">Log out</button></div>
+    <div style="margin-top:26px;"><button class="btn btn-block" id="logoutBtn" onclick="logout()">Log out</button></div>
   `;
 }
 async function closeLead(id){
