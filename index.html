@@ -1066,6 +1066,17 @@ function bindEvents(){
 }
 
 /* ============== AUTH ============== */
+// Supabase's client auto-refreshes the underlying session in the
+// background, but a token captured once into a variable stays frozen at
+// whatever it was when captured. For anything that might run long enough
+// to cross the ~1 hour token lifetime (large bulk uploads), always ask
+// for a fresh one right before each request instead of reusing one
+// grabbed at the start.
+async function getFreshAccessToken(){
+  const { data: { session } } = await sb.auth.getSession();
+  return session ? session.access_token : null;
+}
+
 async function withButtonBusy(btn, busyText, fn){
   if(!btn) return fn();
   const original = btn.textContent;
@@ -1744,9 +1755,11 @@ async function submitCsvUpload(){
       };
 
       try{
+        const token = await getFreshAccessToken();
+        if(!token){ logCsvResult(`${label} — your session expired, please log in again to continue this batch`, false); break; }
         const res = await fetch(`${SUPABASE_URL}/functions/v1/clever-responder`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${session.access_token}` },
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` },
           body: JSON.stringify(body)
         });
         const result = await res.json();
@@ -1756,6 +1769,7 @@ async function submitCsvUpload(){
       }catch(err){
         logCsvResult(`${label} — network error`, false);
       }
+      await new Promise(r=>setTimeout(r, 120)); // gentle pacing for large batches
     }
     toast(`Done — ${okCount} of ${rows.length} queued. They'll go live automatically on schedule.`);
     await refreshAll(); renderAdmin();
@@ -1829,9 +1843,11 @@ async function submitCsvContacts(){
       }
 
       try{
+        const token = await getFreshAccessToken();
+        if(!token){ logCsvContactsResult(`${label} — your session expired, please log in again to continue this batch`, false); break; }
         const res = await fetch(`${SUPABASE_URL}/functions/v1/clever-responder`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${session.access_token}` },
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
             first_name: row.first_name, telegram_username: hasUsername ? row.telegram_username : null,
             telegram_id: hasId ? Number(row.telegram_id) : null
@@ -1843,6 +1859,7 @@ async function submitCsvContacts(){
       }catch(err){
         logCsvContactsResult(`${label} — network error`, false);
       }
+      await new Promise(r=>setTimeout(r, 120)); // gentle pacing for large batches
     }
     toast(`Done — ${okCount} of ${rows.length} accounts ready.`);
     await refreshAll(); renderAdmin();
