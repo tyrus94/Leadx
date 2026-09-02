@@ -2087,7 +2087,7 @@ async function toggleOfficial(id){
   toast(!u.isOfficial ? 'Marked as an official LeadX account — unlimited posting, no "Contact poster" shown on their leads.' : 'Official status removed.');
 }
 async function adminApproveLead(id){
-  const { error } = await sb.from('leads').update({ status:'active' }).eq('id', id);
+  const { error } = await sb.from('leads').update({ status:'active', created_at: new Date().toISOString() }).eq('id', id);
   if(error){ console.error(error); toast('Could not approve — please try again.'); return; }
   await refreshAll(); renderAdmin(); renderBrowse(); renderTicker();
   toast('Lead approved and posted to the desk.');
